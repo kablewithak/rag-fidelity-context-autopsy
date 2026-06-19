@@ -1,0 +1,8 @@
+Synthetic Incident Log Extract
+
+2026-05-14T09:12:03Z service=identity-api level=INFO event=sso_rollout_started tenant=demo-enterprise
+2026-05-14T09:18:41Z service=identity-api level=WARN event=token_validation_latency_ms value=1840 threshold_ms=500
+2026-05-14T09:20:16Z service=identity-api level=ERROR event=login_failure_spike error_code=JWT_AUD_MISMATCH affected_region=eu-west
+2026-05-14T09:24:55Z service=identity-api level=INFO event=rollback_started change=sso_audience_validation
+2026-05-14T09:31:08Z service=identity-api level=INFO event=rollback_completed status=service_recovered
+2026-05-14T10:02:40Z service=incident-review level=INFO root_cause=SSO audience validation accepted an incorrect tenant audience after rollout.

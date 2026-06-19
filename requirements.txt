@@ -1,0 +1,2 @@
+# Runtime dependencies. Development and test dependencies live in pyproject.toml.
+pydantic>=2.7,<3.0

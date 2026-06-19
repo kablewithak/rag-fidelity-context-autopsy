@@ -1,0 +1,12 @@
+Northstar Pricing Reference — Synthetic Sample
+
+Starter Plan | $49 per workspace per month | Includes 5 seats | No annual discount
+Team Plan | $199 per workspace per month | Includes 25 seats | 15% discount on annual billing
+Business Plan | $499 per workspace per month | Includes 100 seats | 20% discount on annual billing
+Enterprise Plan | Custom pricing | Includes unlimited seats | Annual commitment required
+
+Usage Add-On
+The API overage rate is $0.002 per request after the included monthly allowance.
+
+Procurement Threshold
+Purchases above $250,000 per year require a signed order form and executive approval.

@@ -1,0 +1,13 @@
+Northstar Support Policy — Synthetic Sample
+
+Standard Support
+Standard support requests receive an initial response within two business days. Business days exclude weekends and public holidays in the customer's contracted support region.
+
+Enterprise Support
+Enterprise customers receive an initial response within four business hours for Severity 1 incidents and within one business day for Severity 2 incidents.
+
+Refund Policy
+A customer may request a refund within 14 calendar days of the first paid subscription charge when the service has not been materially used. Refund requests must be submitted through the billing portal.
+
+Security Notification
+If Northstar confirms unauthorized access to customer content, Northstar will notify the affected customer without undue delay and no later than seventy-two hours after confirmation.

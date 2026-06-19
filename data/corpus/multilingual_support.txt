@@ -1,0 +1,10 @@
+Multilingual Support Reference — Synthetic Sample
+
+Français
+Pour réinitialiser votre mot de passe, sélectionnez « Mot de passe oublié » sur la page de connexion. Un lien de réinitialisation expire après 30 minutes.
+
+Deutsch
+Bei einem bestätigten Sicherheitsvorfall informiert Northstar betroffene Unternehmenskunden innerhalb von 72 Stunden nach der Bestätigung.
+
+Español
+Las solicitudes de reembolso deben enviarse a través del portal de facturación dentro de los 14 días calendario posteriores al primer cargo de suscripción pagado.

@@ -1,0 +1,10 @@
+Northstar Product FAQ — Synthetic Sample
+
+Q: How do I export workspace data?
+A: Workspace owners can export workspace data from Settings > Data Management > Export. A download link is sent to the owner's verified email address.
+
+Q: How do I delete a workspace?
+A: Only workspace owners may request deletion. Submit the deletion request from Settings > Data Management > Delete Workspace. The request starts a seven-day recovery window.
+
+Q: Can I change my billing plan?
+A: Workspace owners can change plans from Settings > Billing. Changes to annual plans take effect at the next renewal unless otherwise stated in an order form.
