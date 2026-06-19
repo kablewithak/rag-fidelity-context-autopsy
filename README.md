@@ -12,30 +12,30 @@ This is not a generic token counter or a prompt-only demo. It is an inspectable 
 
 ## Current capability
 
-Phase 1 adds the chunking boundary of the harness:
+Phase 2 adds the first retrieval boundary of the harness:
 
-- fixed-character baseline chunking;
-- fixed token-window chunking;
-- sentence-aware token chunking that preserves sentence, table-row, and log-event units where they fit the configured budget;
-- source character spans, token counts, and boundary-quality metadata for every chunk;
-- chunking reports showing whether the gold evidence was preserved or split;
-- an offline deterministic diagnostic tokenizer for reliable local tests;
-- an optional `tiktoken` adapter for later model-specific token-budget comparisons.
+- strict loading of the fixed synthetic corpus through a declared manifest;
+- deterministic corpus integrity metadata, including source-text SHA-256 hashes;
+- chunk preparation through the existing character, token-window, or sentence-aware chunker seam;
+- BM25 Okapi lexical retrieval over emitted chunks;
+- Unicode-aware lexical normalization that preserves exact terms, identifiers, and multilingual words where possible;
+- typed retrieval traces with scores, stable ranks, candidate chunks, and gold-evidence recall;
+- deterministic tie-breaking by `chunk_id` so reports do not change when scores tie.
 
-**Status:** locally validated on synthetic data. Retrieval, reranking, context assembly, Streamlit, deployment, and customer-data validation are not implemented yet.
+**Status:** locally validated on synthetic data. Dense retrieval, hybrid fusion, cross-encoder reranking, context assembly, Streamlit, deployment, and customer-data validation are not implemented yet.
 
 ## Why tokenization matters here
 
-Tokenization is visible at the engineering boundary where text becomes model capacity:
+Tokenization now appears at two deliberately separate engineering boundaries:
 
-1. Chunk sizes are measured in explicit token units, not only characters.
-2. A different tokenizer can move a sentence across a token limit and change chunk boundaries.
-3. Evidence can be retrieved only if a meaningful evidence-bearing chunk survives segmentation.
-4. Later context packing will use the same token-counter contract to prove when evidence is dropped before generation.
+1. **Model-tokenizer boundary:** chunk windows use the `TokenCounter` contract. A model tokenizer can change a chunk’s size and boundary behaviour.
+2. **Lexical retrieval boundary:** BM25 normalizes words for term matching. This is not the same as a model tokenizer and is recorded separately as `lexical_analyzer_name` in every retrieval trace.
+
+That distinction prevents a common diagnostic mistake: treating lexical search terms, embedding inputs, and model context tokens as if they were the same segmentation system.
 
 > Token counts are tokenizer-specific. Recalculate budgets when changing models or tokenizers.
 
-### Tokenizer posture in Phase 1
+### Tokenizer posture
 
 The default tests use `diagnostic:unicode_codepoint_v1`, an offline deterministic tokenizer. It is deliberately **not** presented as a production model tokenizer. This prevents an external tokenizer-vocabulary download from making the harness flaky.
 
@@ -52,7 +52,7 @@ That separation is intentional: **the harness boundary is proven first; model-sp
 ```text
 rag-fidelity-context-autopsy/
 ├── data/
-│   ├── corpus/                 # Synthetic source documents only
+│   ├── corpus/                 # Fixed synthetic source documents only
 │   └── eval_cases.jsonl        # Fixed diagnostic cases
 ├── docs/
 │   └── PROJECT_SCOPE.md
@@ -60,9 +60,11 @@ rag-fidelity-context-autopsy/
 ├── rag_lab/
 │   ├── schemas.py              # Pydantic boundary contracts
 │   ├── eval_cases.py           # JSONL loading and validation
+│   ├── corpus_loader.py        # Strict synthetic corpus manifest and chunk preparation
 │   ├── failure_taxonomy.py     # Failure labels and repair mapping
 │   ├── tokenizers.py           # Offline + optional model-tokenizer adapters
-│   └── chunkers.py             # Character, token, and sentence-aware chunkers
+│   ├── chunkers.py             # Character, token, and sentence-aware chunkers
+│   └── retrievers.py           # BM25 lexical retrieval and typed traces
 └── tests/
 ```
 
@@ -93,11 +95,13 @@ Trace and report layers must minimize retained text, avoid secret/PII logging, a
 
 1. Fixed eval cases and schemas — **complete**
 2. Character, token, and sentence-aware chunking — **complete**
-3. BM25, dense retrieval, hybrid fusion, and reranking
-4. Token-budget-aware context autopsy and lost-evidence reports
-5. Deterministic pipeline comparison and executive markdown export
-6. Streamlit demonstration surface
-7. Hugging Face Spaces CPU deployment
+3. Corpus manifest and deterministic BM25 retrieval traces — **complete**
+4. Dense retrieval, hybrid fusion, and first-stage comparison
+5. Cross-encoder reranking and before/after rank evidence
+6. Token-budget-aware context autopsy and lost-evidence reports
+7. Deterministic pipeline comparison and executive markdown export
+8. Streamlit demonstration surface
+9. Hugging Face Spaces CPU deployment
 
 ## Non-claims
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 from statistics import fmean
+from typing import Protocol
 
 from rag_lab.schemas import (
     ChunkBoundaryQuality,
@@ -17,6 +18,15 @@ from rag_lab.tokenizers import TokenCounter
 
 class ChunkingInputError(ValueError):
     """Raised when a chunking request cannot produce trustworthy chunk boundaries."""
+
+
+class Chunker(Protocol):
+    """Minimal chunker contract shared by corpus preparation and later pipelines."""
+
+    strategy: ChunkingStrategy
+
+    def chunk(self, *, text: str, source_doc_id: str) -> list[TextChunk]:
+        """Return deterministic chunks for one source document."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,14 +313,11 @@ def _chunk_token_windows(
 
     chunks: list[TextChunk] = []
     step = max_tokens - overlap_tokens
-    token_offsets = token_counter.token_char_offsets(source_text)
-    if len(token_offsets) != len(token_ids) + 1:
-        raise ChunkingInputError("tokenizer offsets must contain one entry per token plus text end")
 
     for token_start in range(0, len(token_ids), step):
         token_end = min(token_start + max_tokens, len(token_ids))
-        char_start = token_offsets[token_start]
-        char_end = token_offsets[token_end]
+        char_start = len(token_counter.decode(token_ids[:token_start]))
+        char_end = len(token_counter.decode(token_ids[:token_end]))
         chunks.append(
             _make_chunk(
                 source_text=source_text,

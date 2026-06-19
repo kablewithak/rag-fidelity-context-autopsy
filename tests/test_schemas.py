@@ -12,6 +12,9 @@ from rag_lab.schemas import (
     FailureDiagnosis,
     FailureLabel,
     QueryType,
+    RetrievedChunk,
+    RetrievalMethod,
+    RetrievalTrace,
     TextChunk,
 )
 
@@ -45,6 +48,15 @@ def valid_chunk_payload() -> dict[str, object]:
     }
 
 
+def valid_retrieval_result() -> RetrievedChunk:
+    return RetrievedChunk(
+        chunk=TextChunk.model_validate(valid_chunk_payload()),
+        rank=1,
+        score=1.5,
+        gold_evidence_match=True,
+    )
+
+
 def test_evaluation_case_accepts_valid_contract() -> None:
     case = EvaluationCase.model_validate(valid_case_payload())
 
@@ -74,6 +86,23 @@ def test_text_chunk_rejects_source_span_that_does_not_match_char_count() -> None
 
     with pytest.raises(ValidationError, match="source character span must equal char_count"):
         TextChunk.model_validate(payload)
+
+
+def test_retrieval_trace_rejects_non_contiguous_ranks() -> None:
+    result = valid_retrieval_result().model_copy(update={"rank": 2})
+
+    with pytest.raises(ValidationError, match="ranks must be contiguous"):
+        RetrievalTrace(
+            case_id="valid_case_001",
+            retriever_name=RetrievalMethod.BM25_OKAPI,
+            lexical_analyzer_name="lexical:test_v1",
+            query="Where can an owner export workspace data?",
+            requested_top_k=2,
+            corpus_chunk_count=2,
+            results=[result],
+            gold_evidence_found=True,
+            gold_evidence_rank=2,
+        )
 
 
 def test_failure_diagnosis_rejects_duplicate_labels() -> None:

@@ -75,6 +75,14 @@ class ChunkBoundaryQuality(StrEnum):
     MIXED = "mixed"
 
 
+class RetrievalMethod(StrEnum):
+    """Retriever implementations compared by the lab."""
+
+    BM25_OKAPI = "bm25_okapi"
+    DENSE = "dense"
+    HYBRID = "hybrid"
+
+
 class EvaluationCase(BaseModel):
     """A deterministic RAG diagnostic case with explicit gold evidence."""
 
@@ -114,6 +122,24 @@ class EvaluationCase(BaseModel):
         if not value.strip():
             raise ValueError("must contain non-whitespace text")
         return value
+
+
+class CorpusDocument(BaseModel):
+    """A loaded synthetic source document with deterministic integrity metadata."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    source_doc_id: str = Field(pattern=r"^[a-z0-9_]+$", min_length=3, max_length=96)
+    document_type: DocumentType
+    text: str = Field(min_length=1, max_length=100_000)
+    char_count: int = Field(ge=1)
+    text_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def validate_text_length(self) -> "CorpusDocument":
+        if len(self.text) != self.char_count:
+            raise ValueError("char_count must equal the source text length")
+        return self
 
 
 class TextChunk(BaseModel):
@@ -167,6 +193,62 @@ class ChunkingReport(BaseModel):
             raise ValueError("max_token_count must match the emitted chunks")
         if self.gold_evidence_preserved and self.gold_evidence_split:
             raise ValueError("preserved gold evidence cannot also be marked as split")
+        return self
+
+
+class RetrievedChunk(BaseModel):
+    """One first-stage retrieval candidate with an inspectable score and rank."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    chunk: TextChunk
+    rank: int = Field(ge=1)
+    score: float
+    gold_evidence_match: bool
+
+
+class RetrievalTrace(BaseModel):
+    """Typed trace proving what a first-stage retriever returned for one eval case."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    case_id: str = Field(pattern=r"^[a-z0-9_]+$", min_length=5, max_length=96)
+    retriever_name: RetrievalMethod
+    lexical_analyzer_name: str = Field(min_length=3, max_length=160)
+    query: str = Field(min_length=1, max_length=1000)
+    requested_top_k: int = Field(ge=1)
+    corpus_chunk_count: int = Field(ge=1)
+    results: list[RetrievedChunk] = Field(min_length=1)
+    gold_evidence_found: bool
+    gold_evidence_rank: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_retrieval_trace(self) -> "RetrievalTrace":
+        if len(self.results) > self.requested_top_k:
+            raise ValueError("result count cannot exceed requested_top_k")
+        if len(self.results) > self.corpus_chunk_count:
+            raise ValueError("result count cannot exceed corpus_chunk_count")
+
+        expected_ranks = list(range(1, len(self.results) + 1))
+        actual_ranks = [result.rank for result in self.results]
+        if actual_ranks != expected_ranks:
+            raise ValueError("retrieval result ranks must be contiguous and start at 1")
+
+        chunk_ids = [result.chunk.chunk_id for result in self.results]
+        if len(chunk_ids) != len(set(chunk_ids)):
+            raise ValueError("retrieval results must not repeat a chunk")
+
+        match_ranks = [result.rank for result in self.results if result.gold_evidence_match]
+        if self.gold_evidence_found:
+            if len(match_ranks) != 1:
+                raise ValueError("gold_evidence_found requires exactly one matching result")
+            if self.gold_evidence_rank != match_ranks[0]:
+                raise ValueError("gold_evidence_rank must match the gold evidence result rank")
+        elif self.gold_evidence_rank is not None:
+            raise ValueError("gold_evidence_rank must be null when gold evidence was not found")
+        elif match_ranks:
+            raise ValueError("gold evidence matches require gold_evidence_found to be true")
+
         return self
 
 
