@@ -11,6 +11,8 @@ from rag_lab.schemas import (
     EvidenceLossStage,
     FailureDiagnosis,
     FailureLabel,
+    HybridFusionMethod,
+    HybridScoreBreakdown,
     QueryType,
     RetrievedChunk,
     RetrievalMethod,
@@ -54,6 +56,21 @@ def valid_retrieval_result() -> RetrievedChunk:
         rank=1,
         score=1.5,
         gold_evidence_match=True,
+    )
+
+
+def valid_hybrid_result() -> RetrievedChunk:
+    return valid_retrieval_result().model_copy(
+        update={
+            "score": 0.032,
+            "hybrid_score_breakdown": HybridScoreBreakdown(
+                bm25_rank=1,
+                bm25_score=4.2,
+                dense_rank=2,
+                dense_score=0.73,
+                fused_score=0.032,
+            ),
+        }
     )
 
 
@@ -147,4 +164,71 @@ def test_dense_retrieval_trace_requires_embedding_metadata_and_excludes_lexical_
             results=[result],
             gold_evidence_found=True,
             gold_evidence_rank=1,
+        )
+
+
+def test_hybrid_trace_requires_fusion_metadata_and_component_breakdowns() -> None:
+    result = valid_retrieval_result()
+
+    with pytest.raises(ValidationError, match="require reciprocal_rank_fusion metadata"):
+        RetrievalTrace(
+            case_id="valid_case_001",
+            retriever_name=RetrievalMethod.HYBRID,
+            lexical_analyzer_name="lexical:test_v1",
+            embedding_model_name="fixture:test_dense_v1",
+            embedding_dimension=2,
+            query="Where can an owner export workspace data?",
+            requested_top_k=1,
+            corpus_chunk_count=1,
+            results=[result],
+            gold_evidence_found=True,
+            gold_evidence_rank=1,
+        )
+
+    with pytest.raises(ValidationError, match="hybrid results require hybrid score breakdowns"):
+        RetrievalTrace(
+            case_id="valid_case_001",
+            retriever_name=RetrievalMethod.HYBRID,
+            lexical_analyzer_name="lexical:test_v1",
+            embedding_model_name="fixture:test_dense_v1",
+            embedding_dimension=2,
+            hybrid_fusion_method=HybridFusionMethod.RECIPROCAL_RANK_FUSION,
+            hybrid_rrf_k=60,
+            query="Where can an owner export workspace data?",
+            requested_top_k=1,
+            corpus_chunk_count=1,
+            results=[result],
+            gold_evidence_found=True,
+            gold_evidence_rank=1,
+        )
+
+
+def test_hybrid_trace_rejects_mismatched_result_and_fused_scores() -> None:
+    result = valid_hybrid_result().model_copy(update={"score": 0.031})
+
+    with pytest.raises(ValidationError, match="must equal the fused score"):
+        RetrievalTrace(
+            case_id="valid_case_001",
+            retriever_name=RetrievalMethod.HYBRID,
+            lexical_analyzer_name="lexical:test_v1",
+            embedding_model_name="fixture:test_dense_v1",
+            embedding_dimension=2,
+            hybrid_fusion_method=HybridFusionMethod.RECIPROCAL_RANK_FUSION,
+            hybrid_rrf_k=60,
+            query="Where can an owner export workspace data?",
+            requested_top_k=1,
+            corpus_chunk_count=1,
+            results=[result],
+            gold_evidence_found=True,
+            gold_evidence_rank=1,
+        )
+
+
+def test_hybrid_score_breakdown_requires_rank_score_pairs() -> None:
+    with pytest.raises(ValidationError, match="bm25_rank and bm25_score must be set together"):
+        HybridScoreBreakdown(
+            bm25_rank=1,
+            dense_rank=1,
+            dense_score=0.9,
+            fused_score=0.03,
         )

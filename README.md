@@ -12,7 +12,7 @@ This is not a generic token counter or a prompt-only demo. It is an inspectable 
 
 ## Current capability
 
-Phase 3 adds the dense-retrieval boundary while keeping model downloads outside the deterministic test suite:
+Phase 4 adds an auditable hybrid-retrieval boundary:
 
 - strict loading of the fixed synthetic corpus through a declared manifest;
 - deterministic corpus integrity metadata, including source-text SHA-256 hashes;
@@ -20,21 +20,22 @@ Phase 3 adds the dense-retrieval boundary while keeping model downloads outside 
 - BM25 Okapi lexical retrieval over emitted chunks;
 - a provider-neutral dense-embedding contract and cosine-similarity `DenseRetriever`;
 - a lazy CPU-first `SentenceTransformerEmbeddingModel` adapter for explicitly selected models;
-- typed retrieval traces that record either lexical-analyzer provenance, embedding-model provenance, or both in the future hybrid pipeline;
-- deterministic tie-breaking by `chunk_id` so reports do not change when scores tie;
-- offline fixture vectors for dense-retrieval unit tests, so CI does not download model weights.
+- `HybridRetriever` using reciprocal rank fusion (RRF) over the full BM25 and dense rankings;
+- typed hybrid traces that retain lexical analyzer, embedding model, vector dimension, RRF parameter, component ranks, component scores, and fused score for every returned chunk;
+- deterministic `chunk_id` tie-breaking so reports do not change when scores tie;
+- offline fixture vectors for retrieval unit tests, so CI does not download model weights.
 
-**Status:** locally validated on synthetic data. Hybrid fusion, cross-encoder reranking, context assembly, Streamlit, deployment, and customer-data validation are not implemented yet.
+**Status:** locally validated on synthetic data. Cross-encoder reranking, context assembly, Streamlit, deployment, and customer-data validation are not implemented yet.
 
 ## Why tokenization matters here
 
 Tokenization appears at three deliberately separate engineering boundaries:
 
 1. **Model-tokenizer boundary:** chunk windows use the `TokenCounter` contract. A model tokenizer can change a chunk’s size and boundary behaviour.
-2. **Lexical retrieval boundary:** BM25 normalizes words for term matching. This is not the same as a model tokenizer and is recorded as `lexical_analyzer_name` in a BM25 trace.
+2. **Lexical retrieval boundary:** BM25 normalizes words for term matching. This is not the same as a model tokenizer and is recorded as `lexical_analyzer_name` in a BM25 or hybrid trace.
 3. **Embedding-model boundary:** dense retrieval converts an entire chunk and query into fixed-dimension vectors. That semantic representation is recorded through `embedding_model_name` and `embedding_dimension`; it is not a token-count measure.
 
-That distinction prevents a common diagnostic mistake: treating lexical search terms, embedding inputs, and model context tokens as if they were the same segmentation system.
+Hybrid fusion does **not** merge raw BM25 and cosine scores. They have different scales. Instead, RRF combines their positions in the two ranked lists and records the inputs behind the fused result.
 
 > Token counts are tokenizer-specific. Recalculate budgets when changing models or tokenizers.
 
@@ -48,13 +49,13 @@ The project has optional runtime extras for an actual tokenizer and dense model 
 python -m pip install -e ".[dev,tiktoken,dense]"
 ```
 
-Run one real Sentence Transformers retrieval trace over the synthetic corpus:
+Run one real BM25+dense hybrid trace over the synthetic corpus:
 
 ```powershell
-python .\scripts\run_dense_smoke.py
+python .\scripts\run_hybrid_smoke.py
 ```
 
-The first run may download the explicitly selected model (`sentence-transformers/all-MiniLM-L6-v2` by default). Its model identity and vector dimension appear in the output trace. Unit-test success alone does **not** claim the selected real model was downloaded, loaded, or benchmarked.
+The first run may download the explicitly selected model (`sentence-transformers/all-MiniLM-L6-v2` by default). Its model identity, vector dimension, RRF configuration, component ranks, and fused scores appear in the output trace. Unit-test success alone does **not** claim the selected real model was downloaded, loaded, or benchmarked.
 
 ## Repository layout
 
@@ -64,10 +65,12 @@ rag-fidelity-context-autopsy/
 │   ├── corpus/                 # Fixed synthetic source documents only
 │   └── eval_cases.jsonl        # Fixed diagnostic cases
 ├── docs/
+│   ├── ADR-001-hybrid-fusion.md
 │   └── PROJECT_SCOPE.md
 ├── outputs/                    # Git-ignored generated reports
 ├── scripts/
-│   └── run_dense_smoke.py      # Optional real-model local smoke run
+│   ├── run_dense_smoke.py      # Optional real dense-retrieval run
+│   └── run_hybrid_smoke.py     # Optional real hybrid-retrieval run
 ├── rag_lab/
 │   ├── schemas.py              # Pydantic boundary contracts
 │   ├── eval_cases.py           # JSONL loading and validation
@@ -76,7 +79,7 @@ rag-fidelity-context-autopsy/
 │   ├── tokenizers.py           # Offline + optional model-tokenizer adapters
 │   ├── embedders.py            # Provider-neutral dense embedding boundary
 │   ├── chunkers.py             # Character, token, and sentence-aware chunkers
-│   └── retrievers.py           # BM25 and cosine dense retrieval with typed traces
+│   └── retrievers.py           # BM25, dense, and rank-fused hybrid retrieval
 └── tests/
 ```
 
@@ -109,7 +112,7 @@ Trace and report layers must minimize retained text, avoid secret/PII logging, a
 2. Character, token, and sentence-aware chunking — **complete**
 3. Corpus manifest and deterministic BM25 retrieval traces — **complete**
 4. Dense retrieval boundary and Sentence Transformers runtime adapter — **complete**
-5. Hybrid fusion and first-stage retrieval comparison
+5. Hybrid fusion and first-stage retrieval comparison — **complete**
 6. Cross-encoder reranking and before/after rank evidence
 7. Token-budget-aware context autopsy and lost-evidence reports
 8. Deterministic pipeline comparison and executive markdown export
