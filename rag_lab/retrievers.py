@@ -1,4 +1,4 @@
-"""Deterministic lexical and dense first-stage retrieval for the RAG reliability lab."""
+"""Deterministic lexical, dense, and hybrid first-stage retrieval."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ from rank_bm25 import BM25Okapi
 from rag_lab.embedders import EmbeddingInputError, EmbeddingModel, validate_embedding_vectors
 from rag_lab.schemas import (
     EvaluationCase,
+    HybridFusionMethod,
+    HybridScoreBreakdown,
     RetrievedChunk,
     RetrievalMethod,
     RetrievalTrace,
@@ -64,7 +66,6 @@ class Bm25Retriever:
         lexical_analyzer: LexicalAnalyzer | None = None,
     ) -> None:
         self._chunks = _validate_chunks(chunks)
-
         self._lexical_analyzer = lexical_analyzer or UnicodeWordLexicalAnalyzer()
         tokenized_chunks = [self._lexical_analyzer.tokenize(chunk.text) for chunk in self._chunks]
         empty_chunk_ids = [
@@ -76,7 +77,6 @@ class Bm25Retriever:
             raise RetrievalInputError(
                 "BM25 lexical analyzer produced no terms for chunks: " + ", ".join(empty_chunk_ids)
             )
-
         self._index = BM25Okapi(tokenized_chunks)
 
     def retrieve(self, *, case: EvaluationCase, top_k: int = 5) -> RetrievalTrace:
@@ -172,6 +172,109 @@ class DenseRetriever:
         )
 
 
+class HybridRetriever:
+    """Fuse full BM25 and dense rankings with auditable reciprocal rank fusion.
+
+    The retriever deliberately fuses ranks rather than raw component scores because BM25 and
+    cosine-similarity score scales are not directly comparable. Each final result retains both
+    component ranks and component scores, so the fusion is inspectable rather than a black box.
+    """
+
+    method = RetrievalMethod.HYBRID
+    fusion_method = HybridFusionMethod.RECIPROCAL_RANK_FUSION
+
+    def __init__(
+        self,
+        *,
+        chunks: Sequence[TextChunk],
+        embedding_model: EmbeddingModel,
+        lexical_analyzer: LexicalAnalyzer | None = None,
+        rrf_k: int = 60,
+    ) -> None:
+        self._chunks = _validate_chunks(chunks)
+        if rrf_k < 1:
+            raise RetrievalInputError("rrf_k must be at least 1")
+        self._rrf_k = rrf_k
+        self._bm25 = Bm25Retriever(
+            chunks=self._chunks,
+            lexical_analyzer=lexical_analyzer,
+        )
+        self._dense = DenseRetriever(
+            chunks=self._chunks,
+            embedding_model=embedding_model,
+        )
+
+    def retrieve(self, *, case: EvaluationCase, top_k: int = 5) -> RetrievalTrace:
+        """Return one rank-fused trace with lexical and embedding provenance.
+
+        Both component retrievers rank the full fixed corpus. That retains rank evidence for every
+        returned hybrid candidate and avoids silently losing a candidate before fusion.
+        """
+
+        _validate_top_k(top_k)
+        full_corpus_k = len(self._chunks)
+        bm25_trace = self._bm25.retrieve(case=case, top_k=full_corpus_k)
+        dense_trace = self._dense.retrieve(case=case, top_k=full_corpus_k)
+        bm25_results = _index_full_component_trace(
+            trace=bm25_trace,
+            expected_chunk_ids={chunk.chunk_id for chunk in self._chunks},
+            component_name="bm25",
+        )
+        dense_results = _index_full_component_trace(
+            trace=dense_trace,
+            expected_chunk_ids={chunk.chunk_id for chunk in self._chunks},
+            component_name="dense",
+        )
+
+        fused_candidates: list[tuple[TextChunk, float, HybridScoreBreakdown]] = []
+        for chunk in self._chunks:
+            bm25_result = bm25_results[chunk.chunk_id]
+            dense_result = dense_results[chunk.chunk_id]
+            fused_score = _reciprocal_rank_fusion_score(
+                bm25_rank=bm25_result.rank,
+                dense_rank=dense_result.rank,
+                rrf_k=self._rrf_k,
+            )
+            breakdown = HybridScoreBreakdown(
+                bm25_rank=bm25_result.rank,
+                bm25_score=bm25_result.score,
+                dense_rank=dense_result.rank,
+                dense_score=dense_result.score,
+                fused_score=fused_score,
+            )
+            fused_candidates.append((chunk, fused_score, breakdown))
+
+        ordered_candidates = sorted(
+            fused_candidates,
+            key=lambda item: (-item[1], item[0].chunk_id),
+        )
+        ranked_results = [
+            RetrievedChunk(
+                chunk=chunk,
+                rank=rank,
+                score=fused_score,
+                gold_evidence_match=case.gold_evidence_text in chunk.text,
+                hybrid_score_breakdown=breakdown,
+            )
+            for rank, (chunk, fused_score, breakdown) in enumerate(
+                ordered_candidates[:top_k],
+                start=1,
+            )
+        ]
+        return _build_trace(
+            case=case,
+            method=self.method,
+            results=ranked_results,
+            requested_top_k=top_k,
+            corpus_chunk_count=len(self._chunks),
+            lexical_analyzer_name=bm25_trace.lexical_analyzer_name,
+            embedding_model_name=dense_trace.embedding_model_name,
+            embedding_dimension=dense_trace.embedding_dimension,
+            hybrid_fusion_method=self.fusion_method,
+            hybrid_rrf_k=self._rrf_k,
+        )
+
+
 def _validate_chunks(chunks: Sequence[TextChunk]) -> tuple[TextChunk, ...]:
     if not chunks:
         raise RetrievalInputError("retrieval requires at least one corpus chunk")
@@ -186,6 +289,32 @@ def _validate_chunks(chunks: Sequence[TextChunk]) -> tuple[TextChunk, ...]:
 def _validate_top_k(top_k: int) -> None:
     if top_k < 1:
         raise RetrievalInputError("top_k must be at least 1")
+
+
+def _index_full_component_trace(
+    *,
+    trace: RetrievalTrace,
+    expected_chunk_ids: set[str],
+    component_name: str,
+) -> dict[str, RetrievedChunk]:
+    """Validate that an internal component ranked the full expected corpus exactly once."""
+
+    observed_chunk_ids = {result.chunk.chunk_id for result in trace.results}
+    if len(trace.results) != trace.corpus_chunk_count:
+        raise RetrievalInputError(f"{component_name} component did not return the full corpus")
+    if observed_chunk_ids != expected_chunk_ids:
+        raise RetrievalInputError(
+            f"{component_name} component trace did not match the hybrid corpus chunk set"
+        )
+    return {result.chunk.chunk_id: result for result in trace.results}
+
+
+def _reciprocal_rank_fusion_score(*, bm25_rank: int, dense_rank: int, rrf_k: int) -> float:
+    if bm25_rank < 1 or dense_rank < 1:
+        raise RetrievalInputError("reciprocal rank fusion requires positive component ranks")
+    if rrf_k < 1:
+        raise RetrievalInputError("rrf_k must be at least 1")
+    return (1.0 / (rrf_k + bm25_rank)) + (1.0 / (rrf_k + dense_rank))
 
 
 def _build_ranked_results(
@@ -205,18 +334,15 @@ def _build_ranked_results(
         zip(chunks, materialized_scores, strict=True),
         key=lambda item: (-item[1], item[0].chunk_id),
     )
-
-    results: list[RetrievedChunk] = []
-    for rank, (chunk, score) in enumerate(ranked[:top_k], start=1):
-        results.append(
-            RetrievedChunk(
-                chunk=chunk,
-                rank=rank,
-                score=score,
-                gold_evidence_match=case.gold_evidence_text in chunk.text,
-            )
+    return [
+        RetrievedChunk(
+            chunk=chunk,
+            rank=rank,
+            score=score,
+            gold_evidence_match=case.gold_evidence_text in chunk.text,
         )
-    return results
+        for rank, (chunk, score) in enumerate(ranked[:top_k], start=1)
+    ]
 
 
 def _build_trace(
@@ -229,6 +355,8 @@ def _build_trace(
     lexical_analyzer_name: str | None = None,
     embedding_model_name: str | None = None,
     embedding_dimension: int | None = None,
+    hybrid_fusion_method: HybridFusionMethod | None = None,
+    hybrid_rrf_k: int | None = None,
 ) -> RetrievalTrace:
     matching_results = [result for result in results if result.gold_evidence_match]
     if len(matching_results) > 1:
@@ -238,13 +366,14 @@ def _build_trace(
 
     gold_evidence_found = bool(matching_results)
     gold_evidence_rank = matching_results[0].rank if matching_results else None
-
     return RetrievalTrace(
         case_id=case.case_id,
         retriever_name=method,
         lexical_analyzer_name=lexical_analyzer_name,
         embedding_model_name=embedding_model_name,
         embedding_dimension=embedding_dimension,
+        hybrid_fusion_method=hybrid_fusion_method,
+        hybrid_rrf_k=hybrid_rrf_k,
         query=case.query,
         requested_top_k=requested_top_k,
         corpus_chunk_count=corpus_chunk_count,

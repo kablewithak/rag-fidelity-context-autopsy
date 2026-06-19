@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rag-fidelity-context-autopsy"
-version = "0.4.0"
+version = "0.5.0"
 description = "Local-first RAG reliability lab for diagnosing evidence loss."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"

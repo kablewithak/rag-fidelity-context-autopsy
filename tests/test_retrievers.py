@@ -7,7 +7,7 @@ import pytest
 from rag_lab.chunkers import CharacterChunker, SentenceAwareTokenChunker
 from rag_lab.corpus_loader import chunk_corpus, load_synthetic_corpus
 from rag_lab.eval_cases import load_evaluation_cases
-from rag_lab.retrievers import Bm25Retriever, RetrievalInputError
+from rag_lab.retrievers import Bm25Retriever, DenseRetriever, HybridRetriever, RetrievalInputError
 from rag_lab.schemas import (
     ChunkBoundaryQuality,
     ChunkingStrategy,
@@ -70,30 +70,8 @@ def test_bm25_trace_records_when_character_chunking_split_the_gold_evidence() ->
 
 
 def test_bm25_tie_breaks_by_chunk_id_for_repeatable_traces() -> None:
-    chunk_a = TextChunk(
-        chunk_id="faq_character_000",
-        source_doc_id="faq",
-        strategy=ChunkingStrategy.CHARACTER,
-        chunk_index=0,
-        text="alpha",
-        token_count=5,
-        char_count=5,
-        source_char_start=0,
-        source_char_end=5,
-        boundary_quality=ChunkBoundaryQuality.CHARACTER_CUT,
-    )
-    chunk_b = TextChunk(
-        chunk_id="legal_terms_character_000",
-        source_doc_id="legal_terms",
-        strategy=ChunkingStrategy.CHARACTER,
-        chunk_index=0,
-        text="alpha",
-        token_count=5,
-        char_count=5,
-        source_char_start=0,
-        source_char_end=5,
-        boundary_quality=ChunkBoundaryQuality.CHARACTER_CUT,
-    )
+    chunk_a = _chunk("faq_character_000", "faq", "alpha")
+    chunk_b = _chunk("legal_terms_character_000", "legal_terms", "alpha")
     case = _case("legal_payment_002").model_copy(
         update={
             "query": "alpha query",
@@ -140,36 +118,12 @@ def _dense_case() -> EvaluationCase:
 
 def _dense_chunks() -> list[TextChunk]:
     return [
-        TextChunk(
-            chunk_id="faq_character_000",
-            source_doc_id="faq",
-            strategy=ChunkingStrategy.CHARACTER,
-            chunk_index=0,
-            text="Distractor sentence.",
-            token_count=20,
-            char_count=20,
-            source_char_start=0,
-            source_char_end=20,
-            boundary_quality=ChunkBoundaryQuality.CHARACTER_CUT,
-        ),
-        TextChunk(
-            chunk_id="legal_terms_character_000",
-            source_doc_id="legal_terms",
-            strategy=ChunkingStrategy.CHARACTER,
-            chunk_index=0,
-            text="Gold evidence sentence.",
-            token_count=23,
-            char_count=23,
-            source_char_start=0,
-            source_char_end=23,
-            boundary_quality=ChunkBoundaryQuality.CHARACTER_CUT,
-        ),
+        _chunk("faq_character_000", "faq", "Distractor sentence."),
+        _chunk("legal_terms_character_000", "legal_terms", "Gold evidence sentence."),
     ]
 
 
 def test_dense_retriever_records_embedding_provenance_and_gold_evidence_rank() -> None:
-    from rag_lab.retrievers import DenseRetriever
-
     embedding_model = FixtureEmbeddingModel(
         {
             "Distractor sentence.": [0.0, 1.0],
@@ -193,8 +147,6 @@ def test_dense_retriever_records_embedding_provenance_and_gold_evidence_rank() -
 
 
 def test_dense_retriever_tie_breaks_by_chunk_id_for_repeatable_traces() -> None:
-    from rag_lab.retrievers import DenseRetriever
-
     chunks = list(reversed(_dense_chunks()))
     embedding_model = FixtureEmbeddingModel(
         {
@@ -216,8 +168,6 @@ def test_dense_retriever_tie_breaks_by_chunk_id_for_repeatable_traces() -> None:
 
 
 def test_dense_retriever_rejects_bad_model_vector_dimension() -> None:
-    from rag_lab.retrievers import DenseRetriever
-
     embedding_model = FixtureEmbeddingModel(
         {
             "Distractor sentence.": [1.0],
@@ -227,3 +177,103 @@ def test_dense_retriever_rejects_bad_model_vector_dimension() -> None:
 
     with pytest.raises(RetrievalInputError, match="invalid corpus embeddings"):
         DenseRetriever(chunks=_dense_chunks(), embedding_model=embedding_model)
+
+
+def _hybrid_case() -> EvaluationCase:
+    return _case("legal_confidentiality_003").model_copy(
+        update={
+            "query": "incident policy recovery",
+            "gold_evidence_text": "Gold recovery evidence.",
+        }
+    )
+
+
+def _hybrid_chunks() -> list[TextChunk]:
+    return [
+        _chunk("faq_character_000", "faq", "incident policy recovery details"),
+        _chunk("legal_terms_character_000", "legal_terms", "Gold recovery evidence."),
+        _chunk("pricing_table_character_000", "pricing_table", "secondary semantic distractor"),
+        _chunk("support_policy_character_000", "support_policy", "third semantic distractor"),
+    ]
+
+
+def _hybrid_embedding_model() -> FixtureEmbeddingModel:
+    return FixtureEmbeddingModel(
+        {
+            "incident policy recovery details": [0.0, 1.0],
+            "Gold recovery evidence.": [1.0, 0.0],
+            "secondary semantic distractor": [0.8, 0.2],
+            "third semantic distractor": [0.7, 0.3],
+            "incident policy recovery": [1.0, 0.0],
+        }
+    )
+
+
+def test_hybrid_retriever_uses_rank_fusion_and_records_component_evidence() -> None:
+    trace = HybridRetriever(
+        chunks=_hybrid_chunks(),
+        embedding_model=_hybrid_embedding_model(),
+        rrf_k=60,
+    ).retrieve(case=_hybrid_case(), top_k=4)
+
+    assert trace.retriever_name == "hybrid"
+    assert trace.lexical_analyzer_name == "lexical:unicode_word_lowercase_v1"
+    assert trace.embedding_model_name == "fixture:deterministic_dense_v1"
+    assert trace.embedding_dimension == 2
+    assert trace.hybrid_fusion_method == "reciprocal_rank_fusion"
+    assert trace.hybrid_rrf_k == 60
+    assert trace.gold_evidence_found is True
+    assert trace.gold_evidence_rank == 1
+
+    gold = trace.results[0]
+    assert gold.chunk.chunk_id == "legal_terms_character_000"
+    assert gold.hybrid_score_breakdown is not None
+    assert gold.hybrid_score_breakdown.bm25_rank == 2
+    assert gold.hybrid_score_breakdown.dense_rank == 1
+    assert gold.score == gold.hybrid_score_breakdown.fused_score
+
+
+def test_hybrid_retriever_tie_breaks_by_chunk_id_after_fusion() -> None:
+    chunks = list(reversed(_dense_chunks()))
+    case = _dense_case().model_copy(update={"gold_evidence_text": "not present"})
+    embedding_model = FixtureEmbeddingModel(
+        {
+            "Distractor sentence.": [1.0, 0.0],
+            "Gold evidence sentence.": [1.0, 0.0],
+            "semantic care query": [1.0, 0.0],
+        }
+    )
+
+    trace = HybridRetriever(chunks=chunks, embedding_model=embedding_model).retrieve(
+        case=case,
+        top_k=2,
+    )
+
+    assert [result.chunk.chunk_id for result in trace.results] == [
+        "faq_character_000",
+        "legal_terms_character_000",
+    ]
+
+
+def test_hybrid_retriever_rejects_non_positive_rrf_k() -> None:
+    with pytest.raises(RetrievalInputError, match="rrf_k must be at least 1"):
+        HybridRetriever(
+            chunks=_hybrid_chunks(),
+            embedding_model=_hybrid_embedding_model(),
+            rrf_k=0,
+        )
+
+
+def _chunk(chunk_id: str, source_doc_id: str, text: str) -> TextChunk:
+    return TextChunk(
+        chunk_id=chunk_id,
+        source_doc_id=source_doc_id,
+        strategy=ChunkingStrategy.CHARACTER,
+        chunk_index=0,
+        text=text,
+        token_count=len(text),
+        char_count=len(text),
+        source_char_start=0,
+        source_char_end=len(text),
+        boundary_quality=ChunkBoundaryQuality.CHARACTER_CUT,
+    )

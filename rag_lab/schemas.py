@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -81,6 +82,12 @@ class RetrievalMethod(StrEnum):
     BM25_OKAPI = "bm25_okapi"
     DENSE = "dense"
     HYBRID = "hybrid"
+
+
+class HybridFusionMethod(StrEnum):
+    """Rank-fusion algorithms that can combine lexical and dense retrieval evidence."""
+
+    RECIPROCAL_RANK_FUSION = "reciprocal_rank_fusion"
 
 
 class EvaluationCase(BaseModel):
@@ -196,6 +203,36 @@ class ChunkingReport(BaseModel):
         return self
 
 
+class HybridScoreBreakdown(BaseModel):
+    """Per-result component ranks and scores used to make hybrid fusion auditable."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bm25_rank: int | None = Field(default=None, ge=1)
+    bm25_score: float | None = None
+    dense_rank: int | None = Field(default=None, ge=1)
+    dense_score: float | None = None
+    fused_score: float = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_component_pairs(self) -> "HybridScoreBreakdown":
+        if (self.bm25_rank is None) != (self.bm25_score is None):
+            raise ValueError("bm25_rank and bm25_score must be set together")
+        if (self.dense_rank is None) != (self.dense_score is None):
+            raise ValueError("dense_rank and dense_score must be set together")
+        if self.bm25_rank is None and self.dense_rank is None:
+            raise ValueError("hybrid score breakdown requires at least one component rank")
+
+        values = [
+            value
+            for value in (self.bm25_score, self.dense_score, self.fused_score)
+            if value is not None
+        ]
+        if any(not math.isfinite(value) for value in values):
+            raise ValueError("hybrid scores must be finite")
+        return self
+
+
 class RetrievedChunk(BaseModel):
     """One first-stage retrieval candidate with an inspectable score and rank."""
 
@@ -205,6 +242,14 @@ class RetrievedChunk(BaseModel):
     rank: int = Field(ge=1)
     score: float
     gold_evidence_match: bool
+    hybrid_score_breakdown: HybridScoreBreakdown | None = None
+
+    @field_validator("score")
+    @classmethod
+    def require_finite_score(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("retrieval score must be finite")
+        return value
 
 
 class RetrievalTrace(BaseModel):
@@ -217,6 +262,8 @@ class RetrievalTrace(BaseModel):
     lexical_analyzer_name: str | None = Field(default=None, min_length=3, max_length=160)
     embedding_model_name: str | None = Field(default=None, min_length=3, max_length=240)
     embedding_dimension: int | None = Field(default=None, ge=1, le=16_384)
+    hybrid_fusion_method: HybridFusionMethod | None = None
+    hybrid_rrf_k: int | None = Field(default=None, ge=1, le=10_000)
     query: str = Field(min_length=1, max_length=1000)
     requested_top_k: int = Field(ge=1)
     corpus_chunk_count: int = Field(ge=1)
@@ -261,6 +308,10 @@ class RetrievalTrace(BaseModel):
                 raise ValueError("bm25 traces require lexical_analyzer_name")
             if self.embedding_model_name is not None or self.embedding_dimension is not None:
                 raise ValueError("bm25 traces must not include embedding metadata")
+            if self.hybrid_fusion_method is not None or self.hybrid_rrf_k is not None:
+                raise ValueError("bm25 traces must not include hybrid fusion metadata")
+            if any(result.hybrid_score_breakdown is not None for result in self.results):
+                raise ValueError("bm25 results must not include hybrid score breakdowns")
             return
 
         if self.retriever_name is RetrievalMethod.DENSE:
@@ -268,6 +319,10 @@ class RetrievalTrace(BaseModel):
                 raise ValueError("dense traces must not include lexical_analyzer_name")
             if self.embedding_model_name is None or self.embedding_dimension is None:
                 raise ValueError("dense traces require embedding model metadata")
+            if self.hybrid_fusion_method is not None or self.hybrid_rrf_k is not None:
+                raise ValueError("dense traces must not include hybrid fusion metadata")
+            if any(result.hybrid_score_breakdown is not None for result in self.results):
+                raise ValueError("dense results must not include hybrid score breakdowns")
             return
 
         if self.retriever_name is RetrievalMethod.HYBRID:
@@ -275,6 +330,16 @@ class RetrievalTrace(BaseModel):
                 raise ValueError("hybrid traces require lexical_analyzer_name")
             if self.embedding_model_name is None or self.embedding_dimension is None:
                 raise ValueError("hybrid traces require embedding model metadata")
+            if self.hybrid_fusion_method is not HybridFusionMethod.RECIPROCAL_RANK_FUSION:
+                raise ValueError("hybrid traces require reciprocal_rank_fusion metadata")
+            if self.hybrid_rrf_k is None:
+                raise ValueError("hybrid traces require hybrid_rrf_k")
+            for result in self.results:
+                breakdown = result.hybrid_score_breakdown
+                if breakdown is None:
+                    raise ValueError("hybrid results require hybrid score breakdowns")
+                if not math.isclose(result.score, breakdown.fused_score, rel_tol=0.0, abs_tol=1e-12):
+                    raise ValueError("hybrid result score must equal the fused score")
             return
 
         raise ValueError("unsupported retriever_name")
