@@ -232,3 +232,42 @@ def test_hybrid_score_breakdown_requires_rank_score_pairs() -> None:
             dense_score=0.9,
             fused_score=0.03,
         )
+
+
+def test_reranking_trace_rejects_candidate_that_does_not_match_first_stage_score() -> None:
+    from rag_lab.schemas import RerankedChunk, RerankerMethod, RerankingTrace
+
+    first_stage = RetrievalTrace(
+        case_id="valid_case_001",
+        retriever_name=RetrievalMethod.BM25_OKAPI,
+        lexical_analyzer_name="lexical:test_v1",
+        query="Where can an owner export workspace data?",
+        requested_top_k=1,
+        corpus_chunk_count=1,
+        results=[valid_retrieval_result()],
+        gold_evidence_found=True,
+        gold_evidence_rank=1,
+    )
+
+    with pytest.raises(ValidationError, match="first_stage_score must match"):
+        RerankingTrace(
+            case_id="valid_case_001",
+            first_stage_retriever_name=RetrievalMethod.BM25_OKAPI,
+            first_stage_trace=first_stage,
+            reranker_name=RerankerMethod.CROSS_ENCODER,
+            reranker_model_name="fixture:cross_encoder_v1",
+            candidate_count=1,
+            results=[
+                RerankedChunk(
+                    chunk=first_stage.results[0].chunk,
+                    rank=1,
+                    first_stage_rank=1,
+                    first_stage_score=9.9,
+                    reranker_score=0.8,
+                    gold_evidence_match=True,
+                )
+            ],
+            gold_evidence_found=True,
+            gold_evidence_rank_before_rerank=1,
+            gold_evidence_rank_after_rerank=1,
+        )
