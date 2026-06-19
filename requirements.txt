@@ -1,2 +1,6 @@
 # Runtime dependencies. Development and test dependencies live in pyproject.toml.
 pydantic>=2.7,<3.0
+
+# Optional model-tokenizer adapter for later runtime comparison:
+# pip install -e ".[tiktoken]"
+tiktoken>=0.8,<1.0
