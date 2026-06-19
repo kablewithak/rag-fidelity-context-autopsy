@@ -114,3 +114,116 @@ def test_bm25_rejects_queries_that_produce_no_lexical_terms() -> None:
 
     with pytest.raises(RetrievalInputError, match="produced no query terms"):
         Bm25Retriever(chunks=_sentence_aware_chunks()).retrieve(case=case)
+
+
+class FixtureEmbeddingModel:
+    """Deterministic test double; it is not represented as a semantic production model."""
+
+    name = "fixture:deterministic_dense_v1"
+    dimension = 2
+
+    def __init__(self, vectors_by_text: dict[str, list[float]]) -> None:
+        self._vectors_by_text = vectors_by_text
+
+    def encode(self, texts: list[str]) -> list[list[float]]:
+        return [self._vectors_by_text[text] for text in texts]
+
+
+def _dense_case() -> EvaluationCase:
+    return _case("legal_confidentiality_003").model_copy(
+        update={
+            "query": "semantic care query",
+            "gold_evidence_text": "Gold evidence sentence.",
+        }
+    )
+
+
+def _dense_chunks() -> list[TextChunk]:
+    return [
+        TextChunk(
+            chunk_id="faq_character_000",
+            source_doc_id="faq",
+            strategy=ChunkingStrategy.CHARACTER,
+            chunk_index=0,
+            text="Distractor sentence.",
+            token_count=20,
+            char_count=20,
+            source_char_start=0,
+            source_char_end=20,
+            boundary_quality=ChunkBoundaryQuality.CHARACTER_CUT,
+        ),
+        TextChunk(
+            chunk_id="legal_terms_character_000",
+            source_doc_id="legal_terms",
+            strategy=ChunkingStrategy.CHARACTER,
+            chunk_index=0,
+            text="Gold evidence sentence.",
+            token_count=23,
+            char_count=23,
+            source_char_start=0,
+            source_char_end=23,
+            boundary_quality=ChunkBoundaryQuality.CHARACTER_CUT,
+        ),
+    ]
+
+
+def test_dense_retriever_records_embedding_provenance_and_gold_evidence_rank() -> None:
+    from rag_lab.retrievers import DenseRetriever
+
+    embedding_model = FixtureEmbeddingModel(
+        {
+            "Distractor sentence.": [0.0, 1.0],
+            "Gold evidence sentence.": [1.0, 0.0],
+            "semantic care query": [0.9, 0.1],
+        }
+    )
+
+    trace = DenseRetriever(chunks=_dense_chunks(), embedding_model=embedding_model).retrieve(
+        case=_dense_case(),
+        top_k=2,
+    )
+
+    assert trace.retriever_name == "dense"
+    assert trace.lexical_analyzer_name is None
+    assert trace.embedding_model_name == "fixture:deterministic_dense_v1"
+    assert trace.embedding_dimension == 2
+    assert trace.gold_evidence_found is True
+    assert trace.gold_evidence_rank == 1
+    assert trace.results[0].chunk.chunk_id == "legal_terms_character_000"
+
+
+def test_dense_retriever_tie_breaks_by_chunk_id_for_repeatable_traces() -> None:
+    from rag_lab.retrievers import DenseRetriever
+
+    chunks = list(reversed(_dense_chunks()))
+    embedding_model = FixtureEmbeddingModel(
+        {
+            "Distractor sentence.": [1.0, 0.0],
+            "Gold evidence sentence.": [1.0, 0.0],
+            "semantic care query": [1.0, 0.0],
+        }
+    )
+
+    trace = DenseRetriever(chunks=chunks, embedding_model=embedding_model).retrieve(
+        case=_dense_case(),
+        top_k=2,
+    )
+
+    assert [result.chunk.chunk_id for result in trace.results] == [
+        "faq_character_000",
+        "legal_terms_character_000",
+    ]
+
+
+def test_dense_retriever_rejects_bad_model_vector_dimension() -> None:
+    from rag_lab.retrievers import DenseRetriever
+
+    embedding_model = FixtureEmbeddingModel(
+        {
+            "Distractor sentence.": [1.0],
+            "Gold evidence sentence.": [1.0],
+        }
+    )
+
+    with pytest.raises(RetrievalInputError, match="invalid corpus embeddings"):
+        DenseRetriever(chunks=_dense_chunks(), embedding_model=embedding_model)

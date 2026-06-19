@@ -214,7 +214,9 @@ class RetrievalTrace(BaseModel):
 
     case_id: str = Field(pattern=r"^[a-z0-9_]+$", min_length=5, max_length=96)
     retriever_name: RetrievalMethod
-    lexical_analyzer_name: str = Field(min_length=3, max_length=160)
+    lexical_analyzer_name: str | None = Field(default=None, min_length=3, max_length=160)
+    embedding_model_name: str | None = Field(default=None, min_length=3, max_length=240)
+    embedding_dimension: int | None = Field(default=None, ge=1, le=16_384)
     query: str = Field(min_length=1, max_length=1000)
     requested_top_k: int = Field(ge=1)
     corpus_chunk_count: int = Field(ge=1)
@@ -238,6 +240,8 @@ class RetrievalTrace(BaseModel):
         if len(chunk_ids) != len(set(chunk_ids)):
             raise ValueError("retrieval results must not repeat a chunk")
 
+        self._validate_retriever_metadata()
+
         match_ranks = [result.rank for result in self.results if result.gold_evidence_match]
         if self.gold_evidence_found:
             if len(match_ranks) != 1:
@@ -250,6 +254,30 @@ class RetrievalTrace(BaseModel):
             raise ValueError("gold evidence matches require gold_evidence_found to be true")
 
         return self
+
+    def _validate_retriever_metadata(self) -> None:
+        if self.retriever_name is RetrievalMethod.BM25_OKAPI:
+            if self.lexical_analyzer_name is None:
+                raise ValueError("bm25 traces require lexical_analyzer_name")
+            if self.embedding_model_name is not None or self.embedding_dimension is not None:
+                raise ValueError("bm25 traces must not include embedding metadata")
+            return
+
+        if self.retriever_name is RetrievalMethod.DENSE:
+            if self.lexical_analyzer_name is not None:
+                raise ValueError("dense traces must not include lexical_analyzer_name")
+            if self.embedding_model_name is None or self.embedding_dimension is None:
+                raise ValueError("dense traces require embedding model metadata")
+            return
+
+        if self.retriever_name is RetrievalMethod.HYBRID:
+            if self.lexical_analyzer_name is None:
+                raise ValueError("hybrid traces require lexical_analyzer_name")
+            if self.embedding_model_name is None or self.embedding_dimension is None:
+                raise ValueError("hybrid traces require embedding model metadata")
+            return
+
+        raise ValueError("unsupported retriever_name")
 
 
 class FailureDiagnosis(BaseModel):

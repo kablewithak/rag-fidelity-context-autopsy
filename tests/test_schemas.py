@@ -117,3 +117,34 @@ def test_failure_diagnosis_rejects_duplicate_labels() -> None:
             evidence_summary="The clause was split across a character boundary.",
             repair_recommendation="Use sentence-aware token chunking.",
         )
+
+
+def test_dense_retrieval_trace_requires_embedding_metadata_and_excludes_lexical_metadata() -> None:
+    result = valid_retrieval_result()
+
+    with pytest.raises(ValidationError, match="dense traces require embedding model metadata"):
+        RetrievalTrace(
+            case_id="valid_case_001",
+            retriever_name=RetrievalMethod.DENSE,
+            query="Where can an owner export workspace data?",
+            requested_top_k=1,
+            corpus_chunk_count=1,
+            results=[result],
+            gold_evidence_found=True,
+            gold_evidence_rank=1,
+        )
+
+    with pytest.raises(ValidationError, match="dense traces must not include lexical_analyzer_name"):
+        RetrievalTrace(
+            case_id="valid_case_001",
+            retriever_name=RetrievalMethod.DENSE,
+            lexical_analyzer_name="lexical:test_v1",
+            embedding_model_name="fixture:test_dense_v1",
+            embedding_dimension=2,
+            query="Where can an owner export workspace data?",
+            requested_top_k=1,
+            corpus_chunk_count=1,
+            results=[result],
+            gold_evidence_found=True,
+            gold_evidence_rank=1,
+        )
