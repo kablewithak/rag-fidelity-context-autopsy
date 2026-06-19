@@ -84,6 +84,12 @@ class RetrievalMethod(StrEnum):
     HYBRID = "hybrid"
 
 
+class RerankerMethod(StrEnum):
+    """Second-stage ranking implementations compared by the lab."""
+
+    CROSS_ENCODER = "cross_encoder"
+
+
 class HybridFusionMethod(StrEnum):
     """Rank-fusion algorithms that can combine lexical and dense retrieval evidence."""
 
@@ -343,6 +349,108 @@ class RetrievalTrace(BaseModel):
             return
 
         raise ValueError("unsupported retriever_name")
+
+
+class RerankedChunk(BaseModel):
+    """One fixed first-stage candidate after query-document rescoring."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    chunk: TextChunk
+    rank: int = Field(ge=1)
+    first_stage_rank: int = Field(ge=1)
+    first_stage_score: float
+    reranker_score: float
+    gold_evidence_match: bool
+
+    @field_validator("first_stage_score", "reranker_score")
+    @classmethod
+    def require_finite_scores(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("reranking scores must be finite")
+        return value
+
+
+class RerankingTrace(BaseModel):
+    """Typed before/after rank evidence for a fixed first-stage candidate set."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    case_id: str = Field(pattern=r"^[a-z0-9_]+$", min_length=5, max_length=96)
+    first_stage_retriever_name: RetrievalMethod
+    first_stage_trace: RetrievalTrace
+    reranker_name: RerankerMethod
+    reranker_model_name: str = Field(min_length=3, max_length=240)
+    candidate_count: int = Field(ge=1)
+    results: list[RerankedChunk] = Field(min_length=1)
+    gold_evidence_found: bool
+    gold_evidence_rank_before_rerank: int | None = Field(default=None, ge=1)
+    gold_evidence_rank_after_rerank: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_reranking_trace(self) -> "RerankingTrace":
+        if self.case_id != self.first_stage_trace.case_id:
+            raise ValueError("case_id must match the first-stage trace")
+        if self.first_stage_retriever_name is not self.first_stage_trace.retriever_name:
+            raise ValueError("first_stage_retriever_name must match the first-stage trace")
+        if self.candidate_count != len(self.first_stage_trace.results):
+            raise ValueError("candidate_count must match the first-stage trace result count")
+        if len(self.results) != self.candidate_count:
+            raise ValueError("reranking results must contain every first-stage candidate")
+
+        expected_ranks = list(range(1, len(self.results) + 1))
+        actual_ranks = [result.rank for result in self.results]
+        if actual_ranks != expected_ranks:
+            raise ValueError("reranking result ranks must be contiguous and start at 1")
+
+        first_stage_by_chunk_id = {
+            result.chunk.chunk_id: result for result in self.first_stage_trace.results
+        }
+        reranked_chunk_ids = [result.chunk.chunk_id for result in self.results]
+        if len(reranked_chunk_ids) != len(set(reranked_chunk_ids)):
+            raise ValueError("reranking results must not repeat a chunk")
+        if set(reranked_chunk_ids) != set(first_stage_by_chunk_id):
+            raise ValueError("reranking results must match the first-stage candidate set")
+
+        for result in self.results:
+            first_stage_result = first_stage_by_chunk_id[result.chunk.chunk_id]
+            if result.chunk != first_stage_result.chunk:
+                raise ValueError("reranked chunk must match the first-stage chunk")
+            if result.first_stage_rank != first_stage_result.rank:
+                raise ValueError("first_stage_rank must match the first-stage trace")
+            if not math.isclose(
+                result.first_stage_score,
+                first_stage_result.score,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            ):
+                raise ValueError("first_stage_score must match the first-stage trace")
+            if result.gold_evidence_match != first_stage_result.gold_evidence_match:
+                raise ValueError("gold_evidence_match must match the first-stage trace")
+
+        if self.gold_evidence_found != self.first_stage_trace.gold_evidence_found:
+            raise ValueError("gold_evidence_found must match the first-stage trace")
+        if self.gold_evidence_rank_before_rerank != self.first_stage_trace.gold_evidence_rank:
+            raise ValueError("gold_evidence_rank_before_rerank must match the first-stage trace")
+
+        reranked_match_ranks = [
+            result.rank for result in self.results if result.gold_evidence_match
+        ]
+        if self.gold_evidence_found:
+            if len(reranked_match_ranks) != 1:
+                raise ValueError("gold evidence must appear exactly once in reranking results")
+            if self.gold_evidence_rank_after_rerank != reranked_match_ranks[0]:
+                raise ValueError(
+                    "gold_evidence_rank_after_rerank must match the reranked gold evidence rank"
+                )
+        elif self.gold_evidence_rank_before_rerank is not None:
+            raise ValueError("gold evidence rank before rerank must be null when not found")
+        elif self.gold_evidence_rank_after_rerank is not None:
+            raise ValueError("gold evidence rank after rerank must be null when not found")
+        elif reranked_match_ranks:
+            raise ValueError("reranking gold evidence matches require gold_evidence_found to be true")
+
+        return self
 
 
 class FailureDiagnosis(BaseModel):
