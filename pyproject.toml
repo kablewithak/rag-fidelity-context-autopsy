@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rag-fidelity-context-autopsy"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local-first RAG reliability lab for diagnosing evidence loss."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
     "pydantic>=2.7,<3.0",
+    "rank-bm25>=0.2.2,<0.3.0",
 ]
 
 [project.optional-dependencies]
