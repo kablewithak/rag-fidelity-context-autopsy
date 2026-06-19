@@ -4,12 +4,15 @@ import pytest
 from pydantic import ValidationError
 
 from rag_lab.schemas import (
+    ChunkBoundaryQuality,
+    ChunkingStrategy,
     DocumentType,
     EvaluationCase,
     EvidenceLossStage,
     FailureDiagnosis,
     FailureLabel,
     QueryType,
+    TextChunk,
 )
 
 
@@ -24,6 +27,21 @@ def valid_case_payload() -> dict[str, object]:
         "expected_failure_mode": FailureLabel.DUPLICATE_CONTEXT_WASTE,
         "source_doc_id": "faq",
         "diagnostic_note": "This checks that the schema accepts a complete fixed diagnostic case.",
+    }
+
+
+def valid_chunk_payload() -> dict[str, object]:
+    return {
+        "chunk_id": "faq_character_000",
+        "source_doc_id": "faq",
+        "strategy": ChunkingStrategy.CHARACTER,
+        "chunk_index": 0,
+        "text": "A complete chunk.",
+        "token_count": 17,
+        "char_count": 17,
+        "source_char_start": 0,
+        "source_char_end": 17,
+        "boundary_quality": ChunkBoundaryQuality.CHARACTER_CUT,
     }
 
 
@@ -48,6 +66,14 @@ def test_evaluation_case_rejects_non_snake_case_identifier() -> None:
 
     with pytest.raises(ValidationError, match="pattern"):
         EvaluationCase.model_validate(payload)
+
+
+def test_text_chunk_rejects_source_span_that_does_not_match_char_count() -> None:
+    payload = valid_chunk_payload()
+    payload["source_char_end"] = 18
+
+    with pytest.raises(ValidationError, match="source character span must equal char_count"):
+        TextChunk.model_validate(payload)
 
 
 def test_failure_diagnosis_rejects_duplicate_labels() -> None:
