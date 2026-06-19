@@ -25,3 +25,8 @@ outputs/*
 Thumbs.db
 .vscode/
 .idea/
+
+# Python packaging and build artifacts
+*.egg-info/
+build/
+dist/
