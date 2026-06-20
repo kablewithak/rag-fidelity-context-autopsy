@@ -1,8 +1,7 @@
-"""Run the fixed real four-pipeline RAG comparison locally.
+"""Execute the four fixed RAG pipelines and print the bounded JSON report.
 
-The command prints a privacy-bounded JSON comparison artifact to stdout. It does not
-write report files in this slice; Phase 7C will add explicit versioned output writing
-and a buyer-facing markdown render once this execution boundary is stable.
+This remains the raw runner command. For the versioned baseline, executive markdown
+readout, and regression gate, use ``run_comparison_baseline.py``.
 """
 from __future__ import annotations
 
@@ -10,20 +9,16 @@ import argparse
 import json
 from pathlib import Path
 
-from rag_lab.comparison_runner import (
-    ComparisonExecutionConfig,
-    FourPipelineComparisonRunner,
+from rag_lab.comparison_runtime import (
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_RERANKER_MODEL,
+    build_runtime_settings,
+    run_local_four_pipeline_comparison,
 )
 from rag_lab.context_assembly import ContextRenderProfile
-from rag_lab.corpus_loader import load_synthetic_corpus
-from rag_lab.embedders import SentenceTransformerEmbeddingModel
-from rag_lab.eval_cases import assert_gold_evidence_exists, load_evaluation_cases
-from rag_lab.rerankers import SentenceTransformersCrossEncoderModel
-from rag_lab.tokenizers import TiktokenTokenCounter, TokenCounter, UnicodeCodePointTokenCounter
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-DEFAULT_RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
 
 def parse_args() -> argparse.Namespace:
@@ -56,49 +51,26 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_token_counter(*, tokenizer_kind: str, encoding_name: str) -> TokenCounter:
-    if tokenizer_kind == "tiktoken":
-        return TiktokenTokenCounter(encoding_name=encoding_name)
-    if tokenizer_kind == "diagnostic":
-        return UnicodeCodePointTokenCounter()
-    raise ValueError(f"unsupported tokenizer kind: {tokenizer_kind}")
-
-
 def main() -> None:
     args = parse_args()
-    token_counter = build_token_counter(
-        tokenizer_kind=args.tokenizer,
-        encoding_name=args.tiktoken_encoding,
-    )
-    cases = load_evaluation_cases(PROJECT_ROOT / "data" / "eval_cases.jsonl")
-    corpus_directory = PROJECT_ROOT / "data" / "corpus"
-    assert_gold_evidence_exists(cases, corpus_directory=corpus_directory)
-    documents = load_synthetic_corpus(corpus_directory=corpus_directory)
-
-    runner = FourPipelineComparisonRunner(
-        token_counter=token_counter,
-        embedding_model=SentenceTransformerEmbeddingModel(
-            model_name=args.embedding_model,
-            device=args.device,
-        ),
-        reranker_scoring_model=SentenceTransformersCrossEncoderModel(
-            model_name=args.reranker_model,
-            device=args.device,
-        ),
-        config=ComparisonExecutionConfig(
-            character_max_characters=args.character_max_characters,
-            sentence_aware_max_tokens=args.sentence_aware_max_tokens,
-            hybrid_rrf_k=args.hybrid_rrf_k,
-            retrieval_metric_k=args.retrieval_metric_k,
-            budgeted_render_profile=ContextRenderProfile(args.budgeted_render_profile),
-        ),
-    )
-    result = runner.run(
+    settings = build_runtime_settings(
         run_id=args.run_id,
-        cases=cases,
-        documents=documents,
+        embedding_model_name=args.embedding_model,
+        reranker_model_name=args.reranker_model,
+        device=args.device,
+        tokenizer_kind=args.tokenizer,
+        tiktoken_encoding=args.tiktoken_encoding,
+        character_max_characters=args.character_max_characters,
+        sentence_aware_max_tokens=args.sentence_aware_max_tokens,
+        hybrid_rrf_k=args.hybrid_rrf_k,
+        retrieval_metric_k=args.retrieval_metric_k,
+        budgeted_render_profile=ContextRenderProfile(args.budgeted_render_profile),
     )
-    print(json.dumps(result.report.model_dump(mode="json"), indent=2, ensure_ascii=False))
+    result = run_local_four_pipeline_comparison(
+        project_root=PROJECT_ROOT,
+        settings=settings,
+    )
+    print(json.dumps(result.execution.report.model_dump(mode="json"), indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

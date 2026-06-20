@@ -1,0 +1,1528 @@
+{
+  "artifact_schema_version": "comparison_baseline_artifact_v1",
+  "artifact_id": "four_pipeline_baseline_v1",
+  "reference_run_id": "local_four_pipeline_run_v2",
+  "provenance": {
+    "tokenizer_name": "tiktoken:cl100k_base",
+    "embedding_model_name": "sentence-transformers:sentence-transformers/all-MiniLM-L6-v2",
+    "reranker_model_name": "sentence-transformers-cross-encoder:cross-encoder/ms-marco-MiniLM-L-6-v2",
+    "device": "cpu",
+    "execution_config": {
+      "character_max_characters": 700,
+      "character_overlap_characters": 0,
+      "sentence_aware_max_tokens": 96,
+      "sentence_aware_overlap_tokens": 0,
+      "hybrid_rrf_k": 60,
+      "retrieval_metric_k": 5,
+      "budgeted_render_profile": "compact_citation"
+    },
+    "corpus_manifest_sha256": "5470ff378f516db6eaff0a87767940edb4acee4e16b721e7d26b03f8afcaa25b",
+    "evaluation_cases_sha256": "cccf10b8a2b6aa84bc4fd981db1f4123bb495a86c02f3f98c580135bf75eebc4",
+    "source_document_count": 7,
+    "evaluation_case_count": 18
+  },
+  "regression_policy": {
+    "retrieval_recall_allowed_drop": 0.0,
+    "mrr_at_10_allowed_drop": 0.0,
+    "evidence_inclusion_allowed_drop": 0.0,
+    "dropped_evidence_allowed_increase": 0.0,
+    "require_baseline_included_evidence_to_remain_included": true,
+    "require_baseline_top_k_retrieval_to_remain_top_k": true
+  },
+  "report": {
+    "schema_version": "comparison_report_v2",
+    "run_id": "local_four_pipeline_run_v2",
+    "retrieval_metric_k": 5,
+    "baseline_pipeline_id": "char_dense_naive",
+    "pipeline_definitions": [
+      {
+        "pipeline_id": "char_dense_naive",
+        "chunking_strategy": "character",
+        "retrieval_method": "dense",
+        "reranker_enabled": false,
+        "context_selection_mode": "naive_top_k",
+        "retrieval_top_k": 8,
+        "final_evidence_chunk_limit": 3,
+        "max_context_tokens": null,
+        "reserved_output_tokens": null
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "chunking_strategy": "sentence_aware_token",
+        "retrieval_method": "dense",
+        "reranker_enabled": false,
+        "context_selection_mode": "naive_top_k",
+        "retrieval_top_k": 8,
+        "final_evidence_chunk_limit": 3,
+        "max_context_tokens": null,
+        "reserved_output_tokens": null
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "chunking_strategy": "sentence_aware_token",
+        "retrieval_method": "hybrid",
+        "reranker_enabled": false,
+        "context_selection_mode": "naive_top_k",
+        "retrieval_top_k": 8,
+        "final_evidence_chunk_limit": 3,
+        "max_context_tokens": null,
+        "reserved_output_tokens": null
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "chunking_strategy": "sentence_aware_token",
+        "retrieval_method": "hybrid",
+        "reranker_enabled": true,
+        "context_selection_mode": "token_budgeted",
+        "retrieval_top_k": 8,
+        "final_evidence_chunk_limit": 8,
+        "max_context_tokens": 1200,
+        "reserved_output_tokens": 240
+      }
+    ],
+    "case_outcomes": [
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "code_root_cause_014",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": null,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": false,
+        "loss_stage": "chunking",
+        "failure_labels": [
+          "bad_chunk_boundary",
+          "gold_evidence_split"
+        ],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:code_root_cause_014",
+            "trace_sha256": "eb9b1f89165eef8c7eda872269763a4549673d2cf0b8d513439905bd605de5c7"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "code_sso_error_013",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:code_sso_error_013",
+            "trace_sha256": "10cec6c881b425cc560a9940d07cc091170dd6ff5cdc49d5480ac55803557608"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "faq_delete_016",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:faq_delete_016",
+            "trace_sha256": "9e9b1432ec1fcd0056e0b1b7c10432eae3db49905c1b3e1f1ce2393f66dc5688"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "faq_export_015",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:faq_export_015",
+            "trace_sha256": "d3d799f8a05e51041af2f1f3d9737ce2aa606d8a2a63757c3e28c4b2e54ca7b9"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "legal_confidentiality_003",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": null,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": false,
+        "loss_stage": "chunking",
+        "failure_labels": [
+          "bad_chunk_boundary",
+          "gold_evidence_split"
+        ],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:legal_confidentiality_003",
+            "trace_sha256": "8fb3c6e4d5aff92bda00ea32ad868966fda799e24bd0029f6245260388582352"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "legal_governing_law_004",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:legal_governing_law_004",
+            "trace_sha256": "1ccfd7c56bd0d6ba9ba4e8a405ac921c272d6206918d4337058a869b4eb76df0"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "legal_payment_002",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:legal_payment_002",
+            "trace_sha256": "85051441ddf7ecf9c629ae872ec4b33cd956e1dc0c1aaef51067635811cf5740"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "legal_termination_001",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:legal_termination_001",
+            "trace_sha256": "cfa8cb6ee6471e0a0bb470e91458f20ec81b05957ced0a669f5822812f0aeac6"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "multilingual_password_011",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:multilingual_password_011",
+            "trace_sha256": "38e6401722e9ee57e08334d84b65f868fda4a0a0ebeed87db177245737c9cbdc"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "multilingual_security_012",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": null,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": false,
+        "loss_stage": "retrieval",
+        "failure_labels": [
+          "dense_retrieval_miss"
+        ],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:multilingual_security_012",
+            "trace_sha256": "7ea3fb24f7eefa3e0bae2829fda3be8926cb6f931ca353b577f03eef7d492df3"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "pricing_annual_discount_009",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:pricing_annual_discount_009",
+            "trace_sha256": "4fcd73cd3087f479e5494eccd644665c43bb54dfac400ee9240bccdd1f25a151"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "pricing_procurement_010",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:pricing_procurement_010",
+            "trace_sha256": "4ae4f910bbeecfa7f5a692a8c120a47d70055546fbbf805a724855550d545e4f"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "pricing_team_plan_008",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:pricing_team_plan_008",
+            "trace_sha256": "58d7c83091e5a6f26b89b4dc2fbbd73272429fbe51552a7f17c05bc627af740e"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "support_enterprise_s1_006",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 4,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": false,
+        "loss_stage": "ranking",
+        "failure_labels": [
+          "relevant_chunk_ranked_too_low"
+        ],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:support_enterprise_s1_006",
+            "trace_sha256": "d13bc49fcb79a1f0af3f729bd8873e89691a4bbcc670f5db29f90a7d182cc4a2"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "support_refund_005",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:support_refund_005",
+            "trace_sha256": "f727933a21960b4b508dab28523c809b4473c405c4fdbda00872ad9e368e107d"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "support_security_notice_007",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": null,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": false,
+        "loss_stage": "chunking",
+        "failure_labels": [
+          "bad_chunk_boundary",
+          "gold_evidence_split"
+        ],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:support_security_notice_007",
+            "trace_sha256": "623460e54366ef6271ec591082c7783cf5e6d9c1773031fa52d9bc72745deddc"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "token_boundary_export_017",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:token_boundary_export_017",
+            "trace_sha256": "be02457462f389fba272ee56e852e7e13fd4c466cf75633feacc4347533f00cc"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "char_dense_naive",
+        "case_id": "token_context_notice_018",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:char_dense_naive:token_context_notice_018",
+            "trace_sha256": "b4d97278b0846a769b3127f7491dd4bb26ca25dac1847416ebedd4af56aa564f"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "code_root_cause_014",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 2,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:code_root_cause_014",
+            "trace_sha256": "d417f4d3a61e1cbca9bab56802281b1ec9ef878c4ebd79dda4e8caef0263b459"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "code_sso_error_013",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:code_sso_error_013",
+            "trace_sha256": "7ed2f17ed783045f5de68d1437cc3492b96d0ce542b6c0c52b73a3198c1645b7"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "faq_delete_016",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:faq_delete_016",
+            "trace_sha256": "6d44fcec8932b2e7c60d807aa3ce7215496257a499520b4530d902a39f159f72"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "faq_export_015",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:faq_export_015",
+            "trace_sha256": "abd7d4dc7094ba2ca195b9f4884738003603d9781424326b37104bff6481bcc7"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "legal_confidentiality_003",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 5,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": false,
+        "loss_stage": "ranking",
+        "failure_labels": [
+          "relevant_chunk_ranked_too_low"
+        ],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:legal_confidentiality_003",
+            "trace_sha256": "f4e157f569b0b4c3e06690889b8de33d6ff8cf98a2987e2c8c08c84706769b2b"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "legal_governing_law_004",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:legal_governing_law_004",
+            "trace_sha256": "da2b6c1a076e6d11bba5a5ec91b4c82d545e03f3b77ece9b3fdac7a443d67ad6"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "legal_payment_002",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:legal_payment_002",
+            "trace_sha256": "7527e668056a483c38a7d910871c1db3ed95143e8fad897d68eb00876e35d436"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "legal_termination_001",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:legal_termination_001",
+            "trace_sha256": "110b2836150a9cd7cb3b1c0cc954d6db92145da2871522326b1279315af75c2b"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "multilingual_password_011",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:multilingual_password_011",
+            "trace_sha256": "315fa6b92f67cb398dd08f08eb51e79772d8dc5c39e45bf930599147c24986f5"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "multilingual_security_012",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 7,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": false,
+        "loss_stage": "ranking",
+        "failure_labels": [
+          "relevant_chunk_ranked_too_low"
+        ],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:multilingual_security_012",
+            "trace_sha256": "60988bcbbfb8c3f711f1d772374841d41c797dd563666c4100be037dbaaa04cf"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "pricing_annual_discount_009",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:pricing_annual_discount_009",
+            "trace_sha256": "7d17ef7d8f8fb63d977dba9bad5744e56df9835abb01b38fcd8d76514333eabe"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "pricing_procurement_010",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:pricing_procurement_010",
+            "trace_sha256": "6977fe9049b7c32cd49bf32b45268d3809a3999c6b870268d595e62392b97a09"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "pricing_team_plan_008",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:pricing_team_plan_008",
+            "trace_sha256": "a102f4df1d0503607eeccfb252024dc9b793c2995cf2cf3124e4dfe057cf7654"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "support_enterprise_s1_006",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 2,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:support_enterprise_s1_006",
+            "trace_sha256": "ab878fb9a1935845375fa4322506b9f26a1cae1908c3cef36c9332a12adc7ab5"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "support_refund_005",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:support_refund_005",
+            "trace_sha256": "161b482aa021b9450c43563a98a301eee85c4dbf66ed7ea45c72c2398abcaa13"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "support_security_notice_007",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:support_security_notice_007",
+            "trace_sha256": "1b95ede62a6aa62e5cd90b4b0dc375d9f1401b855ecaec5fffd6b95d1617699f"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "token_boundary_export_017",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:token_boundary_export_017",
+            "trace_sha256": "14f628f12423d55a7e9473a8a1e44c6337e6efb7f75ea5d4c6f79cc5e5d3a763"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "case_id": "token_context_notice_018",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_dense_naive:token_context_notice_018",
+            "trace_sha256": "8aa270c974033084295bc94d5a17d808478e92950c429bb488acac0020cef34c"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "code_root_cause_014",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 2,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:code_root_cause_014",
+            "trace_sha256": "933043f904df4d5e8ebb275d9dfb925eaf80f15382fa269b02c1e80be24ebde6"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "code_sso_error_013",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:code_sso_error_013",
+            "trace_sha256": "7dd46fe4f57e6ba47071192b4ff86f07b557fb12dd4f7916db02ede6c1cd4439"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "faq_delete_016",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:faq_delete_016",
+            "trace_sha256": "85265fa4fb47ac3990be97040cdf0fd837f6ab4199e18a43c9d1f764a12a58ca"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "faq_export_015",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:faq_export_015",
+            "trace_sha256": "6595b20dfee41168dfc29a63aed0274182e046fde67853ce0aa0da6d66346602"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "legal_confidentiality_003",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 3,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:legal_confidentiality_003",
+            "trace_sha256": "408045c2a030927b75fab18c5a6b58aa8176d3cdd464db4ab1141fe5953036bd"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "legal_governing_law_004",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:legal_governing_law_004",
+            "trace_sha256": "3eb890772bd6bb2dcfb17f548ca6d61f78f7ac5d02c457d04145467e882fcd42"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "legal_payment_002",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:legal_payment_002",
+            "trace_sha256": "da150613636bad7e5dde2bea2b1f3c245cf14b827642651c3b402f2532bba326"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "legal_termination_001",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:legal_termination_001",
+            "trace_sha256": "c457d6719609e49a64f456e664e12baab6f30a8ca243e0f2818960464662e433"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "multilingual_password_011",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:multilingual_password_011",
+            "trace_sha256": "1df90904455d7786efe5d91ce34955abd9b937ee7a6f613318e9947dda371edd"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "multilingual_security_012",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 3,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:multilingual_security_012",
+            "trace_sha256": "7dd33ea07e11b730073d0352af12be73ca188e2921d8c48989e2edf72c133ef6"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "pricing_annual_discount_009",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:pricing_annual_discount_009",
+            "trace_sha256": "133ab450df92a065ed5c71778f2e1c68a2caa12c390cf855f43e56b9401ad6d9"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "pricing_procurement_010",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:pricing_procurement_010",
+            "trace_sha256": "d4fb282544f8b430091d64638d37ea218ce4e91f500fd8a696c6b00da5d31239"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "pricing_team_plan_008",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 2,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:pricing_team_plan_008",
+            "trace_sha256": "b5d740fad1d3f3eadfd770420d8919d072ac287a80447e509df215b54af9633a"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "support_enterprise_s1_006",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:support_enterprise_s1_006",
+            "trace_sha256": "ade5978e999ee9fc57d3a2f3357219edd37c13c9577d4f135466bea1195fea4e"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "support_refund_005",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:support_refund_005",
+            "trace_sha256": "500fec99de65e0ddfce2f5adc5b8b03da3aab64f6055733c23af1a6dd7436f37"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "support_security_notice_007",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:support_security_notice_007",
+            "trace_sha256": "a1b9ede482f5fa4ed2af51c577f387966111b13837262ce70bdd57d0a991c873"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "token_boundary_export_017",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:token_boundary_export_017",
+            "trace_sha256": "58ac42385179d976e6548f4bd395fbe9c7a417cc7db24946c9c285dc8b164b90"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "case_id": "token_context_notice_018",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": null,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_naive:token_context_notice_018",
+            "trace_sha256": "86f49869d43eadf1fe74a21c91def1c287b6b7247f0e0cacc4f82ef60aa63f46"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "code_root_cause_014",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 2,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:code_root_cause_014",
+            "trace_sha256": "933043f904df4d5e8ebb275d9dfb925eaf80f15382fa269b02c1e80be24ebde6"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:code_root_cause_014",
+            "trace_sha256": "eb19dd5030bc1e47ae66b23f47dc77b310126917e2b68085bbdf9425f6af8f10"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:code_root_cause_014",
+            "trace_sha256": "95ab94da995a27bdfc056c1ca80f1d622b75d99146dd0c9b0d64e9dea3b309ac"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "code_sso_error_013",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:code_sso_error_013",
+            "trace_sha256": "7dd46fe4f57e6ba47071192b4ff86f07b557fb12dd4f7916db02ede6c1cd4439"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:code_sso_error_013",
+            "trace_sha256": "b2740f17a88fa0613792c40f6c2889aa9feb0f015e763448ec6346c7c758984c"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:code_sso_error_013",
+            "trace_sha256": "4fe8f389afb995fb03b350814d8ad2ee41ab2e9c5b3ddda8311df25697714bef"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "faq_delete_016",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:faq_delete_016",
+            "trace_sha256": "85265fa4fb47ac3990be97040cdf0fd837f6ab4199e18a43c9d1f764a12a58ca"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:faq_delete_016",
+            "trace_sha256": "0ea51015bdad5446ad2fb6f048b7412db62ccf0d1b9b7e1c30278cdd327bcfe8"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:faq_delete_016",
+            "trace_sha256": "3ca3f7525be094f32242b853b95cc19e2b391e4c32162854f8af7dbc9f9b2e51"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "faq_export_015",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:faq_export_015",
+            "trace_sha256": "6595b20dfee41168dfc29a63aed0274182e046fde67853ce0aa0da6d66346602"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:faq_export_015",
+            "trace_sha256": "e0e00a20be442f229060afa666ccb47bdc6a0703a84c1f855569c0125c262917"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:faq_export_015",
+            "trace_sha256": "2dee6d532bb31a14611ea8d7bd2d2edac82cd43cf748deaaf99179e04127c419"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "legal_confidentiality_003",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 3,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:legal_confidentiality_003",
+            "trace_sha256": "408045c2a030927b75fab18c5a6b58aa8176d3cdd464db4ab1141fe5953036bd"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:legal_confidentiality_003",
+            "trace_sha256": "d996a7c4dd26a522b5e1d01c97711de9bf5f660cb2ab3e8e7eb70f2a1929572d"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:legal_confidentiality_003",
+            "trace_sha256": "9daee4e79579d622b8ba806f82ea416243ed03ba375e53771ccfbb9f53052ab3"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "legal_governing_law_004",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:legal_governing_law_004",
+            "trace_sha256": "3eb890772bd6bb2dcfb17f548ca6d61f78f7ac5d02c457d04145467e882fcd42"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:legal_governing_law_004",
+            "trace_sha256": "a0bd69275c94537e660df25faf4756566191bf48f3ae3a3592e849b7b5d3fd85"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:legal_governing_law_004",
+            "trace_sha256": "4fd90d6a1d3cf45af02230a8bc53d039543ef2566311f024e7029cc32b0bb5b3"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "legal_payment_002",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:legal_payment_002",
+            "trace_sha256": "da150613636bad7e5dde2bea2b1f3c245cf14b827642651c3b402f2532bba326"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:legal_payment_002",
+            "trace_sha256": "8349c9d26a117ec3a6e5a7a21e0c38e2284fde0699301f9cf2a30da4bb85f22d"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:legal_payment_002",
+            "trace_sha256": "2a5252acb6bcc1be8e9d9d62aa4eaa2059dbe94ad4c16940e5773287a39d7292"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "legal_termination_001",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:legal_termination_001",
+            "trace_sha256": "c457d6719609e49a64f456e664e12baab6f30a8ca243e0f2818960464662e433"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:legal_termination_001",
+            "trace_sha256": "33a0bf581e98d1c4f74d91162629d80e2f2733a4971af3859cbde0353c4af6d1"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:legal_termination_001",
+            "trace_sha256": "482775cb7608aa661fc80258cb52fd8ca49b88f099074475b434070f72b76465"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "multilingual_password_011",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:multilingual_password_011",
+            "trace_sha256": "1df90904455d7786efe5d91ce34955abd9b937ee7a6f613318e9947dda371edd"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:multilingual_password_011",
+            "trace_sha256": "6e481630982f9db7aa2c0331c929af860492ad521bf8af844f691337bdfb8257"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:multilingual_password_011",
+            "trace_sha256": "6f71f0a96ee05075d53abd63dcb58c9beb3ec98b29b4befdaaa65f2031d0b823"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "multilingual_security_012",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 3,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:multilingual_security_012",
+            "trace_sha256": "7dd33ea07e11b730073d0352af12be73ca188e2921d8c48989e2edf72c133ef6"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:multilingual_security_012",
+            "trace_sha256": "1ef3dca5cfa47ff71f9a2b97dec5540d0a3e1a35b33f87affad097e1b124fd73"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:multilingual_security_012",
+            "trace_sha256": "4e0624c379f9898d3e4d77bfff4aa70a2c5b4cf6813af04ee38f945e6599504c"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "pricing_annual_discount_009",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:pricing_annual_discount_009",
+            "trace_sha256": "133ab450df92a065ed5c71778f2e1c68a2caa12c390cf855f43e56b9401ad6d9"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:pricing_annual_discount_009",
+            "trace_sha256": "4a2838fe3342d402e27285ee880885a212fef072d9db82efc079519c746faaa6"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:pricing_annual_discount_009",
+            "trace_sha256": "d2afa41d2a8ecef019443b76eb263dabed617db3b7ec8414f063752716356397"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "pricing_procurement_010",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:pricing_procurement_010",
+            "trace_sha256": "d4fb282544f8b430091d64638d37ea218ce4e91f500fd8a696c6b00da5d31239"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:pricing_procurement_010",
+            "trace_sha256": "1c10aab086e072e5a770579ee2d3d77e1e49ef92555a1e8ce9d40bd90ae629d8"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:pricing_procurement_010",
+            "trace_sha256": "c109505f4b8da372d4e959d8bb8e975521aaf6d6f5db55692e3779fa4d112d7d"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "pricing_team_plan_008",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 2,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:pricing_team_plan_008",
+            "trace_sha256": "b5d740fad1d3f3eadfd770420d8919d072ac287a80447e509df215b54af9633a"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:pricing_team_plan_008",
+            "trace_sha256": "34640bb330ad1ee080b2a48008a6ed4b1f57f3d4c8a5d9ab8392957d6d763264"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:pricing_team_plan_008",
+            "trace_sha256": "90ba53395ca0192188bf90a429d203715c3bedb660bb14d82c64c0e08e5046e9"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "support_enterprise_s1_006",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:support_enterprise_s1_006",
+            "trace_sha256": "ade5978e999ee9fc57d3a2f3357219edd37c13c9577d4f135466bea1195fea4e"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:support_enterprise_s1_006",
+            "trace_sha256": "20004d8810d18b298b07fc2fbf5f9748135fcd925ae691357d424acd1c667481"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:support_enterprise_s1_006",
+            "trace_sha256": "8ee5bcc4d31ce5c3c0a6194abd585f3659189bf4ddc8a173fa21b49f491085bd"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "support_refund_005",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:support_refund_005",
+            "trace_sha256": "500fec99de65e0ddfce2f5adc5b8b03da3aab64f6055733c23af1a6dd7436f37"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:support_refund_005",
+            "trace_sha256": "7e549dadea3d3e26fc872a08ef0583e0ceb4c4e3bb8d39212a02d878dcf8ff70"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:support_refund_005",
+            "trace_sha256": "f3a7a1a46b3c4059148b9267ad7345cb55c2610cdf9879b271f5b1f42de7792f"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "support_security_notice_007",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 2,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:support_security_notice_007",
+            "trace_sha256": "a1b9ede482f5fa4ed2af51c577f387966111b13837262ce70bdd57d0a991c873"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:support_security_notice_007",
+            "trace_sha256": "26a4391ed8719139c958b89391ffd9a420a5e35bd89dcb65b8bd10b23ef111b4"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:support_security_notice_007",
+            "trace_sha256": "dd1155ae4600b885bce7b5672cb411f3440115f781d8ce7edd9375e2086f008a"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "token_boundary_export_017",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:token_boundary_export_017",
+            "trace_sha256": "58ac42385179d976e6548f4bd395fbe9c7a417cc7db24946c9c285dc8b164b90"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:token_boundary_export_017",
+            "trace_sha256": "06ff8d27c601288dbc7adaee18d87327528826b7c355002b491245fce7a52387"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:token_boundary_export_017",
+            "trace_sha256": "f41aa317228384d1094cb56bd616ec95b1c556439690074479c181ec83da6b06"
+          }
+        ]
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "case_id": "token_context_notice_018",
+        "requested_top_k": 8,
+        "retrieved_gold_rank": 1,
+        "reranked_gold_rank": 1,
+        "gold_evidence_included": true,
+        "loss_stage": null,
+        "failure_labels": [],
+        "trace_references": [
+          {
+            "trace_id": "retrieval:token_hybrid_rerank_budgeted:token_context_notice_018",
+            "trace_sha256": "86f49869d43eadf1fe74a21c91def1c287b6b7247f0e0cacc4f82ef60aa63f46"
+          },
+          {
+            "trace_id": "reranking:token_hybrid_rerank_budgeted:token_context_notice_018",
+            "trace_sha256": "76636bcf8db3f6fa1ab3fcdef58015fbadcfcc496c042405ad69dc0a634b6243"
+          },
+          {
+            "trace_id": "context_autopsy:token_hybrid_rerank_budgeted:token_context_notice_018",
+            "trace_sha256": "04cc69af44fab7f92d223ba522b764a6d5e0d9a4a4b33adcf87a52d27cff2229"
+          }
+        ]
+      }
+    ],
+    "pipeline_metrics": [
+      {
+        "pipeline_id": "char_dense_naive",
+        "evaluated_case_count": 18,
+        "retrieval_recall_at_k": {
+          "numerator": 14,
+          "denominator": 18,
+          "value": 0.7777777777777778
+        },
+        "mrr_at_10": 0.7361111111111112,
+        "evidence_inclusion_rate": {
+          "numerator": 13,
+          "denominator": 18,
+          "value": 0.7222222222222222
+        },
+        "dropped_evidence_rate": {
+          "numerator": 0,
+          "denominator": 14,
+          "value": 0.0
+        },
+        "failure_label_counts": {
+          "bad_chunk_boundary": 3,
+          "gold_evidence_split": 3,
+          "dense_retrieval_miss": 1,
+          "relevant_chunk_ranked_too_low": 1
+        },
+        "loss_stage_counts": {
+          "chunking": 3,
+          "retrieval": 1,
+          "ranking": 1
+        }
+      },
+      {
+        "pipeline_id": "token_dense_naive",
+        "evaluated_case_count": 18,
+        "retrieval_recall_at_k": {
+          "numerator": 17,
+          "denominator": 18,
+          "value": 0.9444444444444444
+        },
+        "mrr_at_10": 0.8523809523809525,
+        "evidence_inclusion_rate": {
+          "numerator": 16,
+          "denominator": 18,
+          "value": 0.8888888888888888
+        },
+        "dropped_evidence_rate": {
+          "numerator": 0,
+          "denominator": 18,
+          "value": 0.0
+        },
+        "failure_label_counts": {
+          "relevant_chunk_ranked_too_low": 2
+        },
+        "loss_stage_counts": {
+          "ranking": 2
+        }
+      },
+      {
+        "pipeline_id": "token_hybrid_naive",
+        "evaluated_case_count": 18,
+        "retrieval_recall_at_k": {
+          "numerator": 18,
+          "denominator": 18,
+          "value": 1.0
+        },
+        "mrr_at_10": 0.8703703703703703,
+        "evidence_inclusion_rate": {
+          "numerator": 18,
+          "denominator": 18,
+          "value": 1.0
+        },
+        "dropped_evidence_rate": {
+          "numerator": 0,
+          "denominator": 18,
+          "value": 0.0
+        },
+        "failure_label_counts": {},
+        "loss_stage_counts": {}
+      },
+      {
+        "pipeline_id": "token_hybrid_rerank_budgeted",
+        "evaluated_case_count": 18,
+        "retrieval_recall_at_k": {
+          "numerator": 18,
+          "denominator": 18,
+          "value": 1.0
+        },
+        "mrr_at_10": 0.9722222222222222,
+        "evidence_inclusion_rate": {
+          "numerator": 18,
+          "denominator": 18,
+          "value": 1.0
+        },
+        "dropped_evidence_rate": {
+          "numerator": 0,
+          "denominator": 18,
+          "value": 0.0
+        },
+        "failure_label_counts": {},
+        "loss_stage_counts": {}
+      }
+    ],
+    "metric_deltas": [
+      {
+        "baseline_pipeline_id": "char_dense_naive",
+        "comparison_pipeline_id": "token_dense_naive",
+        "retrieval_recall_at_k_delta": 0.16666666666666663,
+        "mrr_at_10_delta": 0.1162698412698413,
+        "evidence_inclusion_rate_delta": 0.16666666666666663,
+        "dropped_evidence_rate_delta": 0.0
+      },
+      {
+        "baseline_pipeline_id": "char_dense_naive",
+        "comparison_pipeline_id": "token_hybrid_naive",
+        "retrieval_recall_at_k_delta": 0.2222222222222222,
+        "mrr_at_10_delta": 0.1342592592592592,
+        "evidence_inclusion_rate_delta": 0.2777777777777778,
+        "dropped_evidence_rate_delta": 0.0
+      },
+      {
+        "baseline_pipeline_id": "char_dense_naive",
+        "comparison_pipeline_id": "token_hybrid_rerank_budgeted",
+        "retrieval_recall_at_k_delta": 0.2222222222222222,
+        "mrr_at_10_delta": 0.23611111111111105,
+        "evidence_inclusion_rate_delta": 0.2777777777777778,
+        "dropped_evidence_rate_delta": 0.0
+      }
+    ]
+  }
+}
