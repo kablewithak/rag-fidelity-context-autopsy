@@ -17,6 +17,7 @@ SYNTHETIC_CORPUS_MANIFEST: dict[str, DocumentType] = {
     "multilingual_support": DocumentType.MULTILINGUAL_SUPPORT,
     "pricing_table": DocumentType.PRICING_TABLE,
     "support_policy": DocumentType.SUPPORT_POLICY,
+    "tokenization_stress_policy": DocumentType.SUPPORT_POLICY,
 }
 
 

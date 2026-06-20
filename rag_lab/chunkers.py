@@ -144,7 +144,6 @@ class SentenceAwareTokenChunker:
         units = _sentence_like_units(source_text, self._token_counter)
         chunks: list[TextChunk] = []
         current_units: list[_SentenceUnit] = []
-        current_token_count = 0
 
         for unit in units:
             if unit.token_count > self._max_tokens:
@@ -157,7 +156,6 @@ class SentenceAwareTokenChunker:
                     )
                 )
                 current_units = []
-                current_token_count = 0
 
                 unit_token_ids = self._token_counter.encode(source_text[unit.start : unit.end])
                 fallback_chunks = _chunk_token_windows(
@@ -175,7 +173,11 @@ class SentenceAwareTokenChunker:
                 chunks.extend(fallback_chunks)
                 continue
 
-            if current_units and current_token_count + unit.token_count > self._max_tokens:
+            if current_units and _combined_units_token_count(
+                source_text=source_text,
+                units=[*current_units, unit],
+                token_counter=self._token_counter,
+            ) > self._max_tokens:
                 chunks.extend(
                     self._flush_current(
                         source_text=source_text,
@@ -188,14 +190,15 @@ class SentenceAwareTokenChunker:
                     current_units,
                     overlap_tokens=self._overlap_tokens,
                 )
-                current_token_count = sum(item.token_count for item in current_units)
 
-                while current_units and current_token_count + unit.token_count > self._max_tokens:
-                    removed = current_units.pop(0)
-                    current_token_count -= removed.token_count
+                while current_units and _combined_units_token_count(
+                    source_text=source_text,
+                    units=[*current_units, unit],
+                    token_counter=self._token_counter,
+                ) > self._max_tokens:
+                    current_units.pop(0)
 
             current_units.append(unit)
-            current_token_count += unit.token_count
 
         chunks.extend(
             self._flush_current(
@@ -248,6 +251,12 @@ def build_chunking_report(
         raise ChunkingInputError("cannot build a chunking report without chunks")
     if not gold_evidence_text.strip():
         raise ChunkingInputError("gold_evidence_text must contain non-whitespace text")
+
+    chunk_tokenizer_names = {chunk.tokenizer_name for chunk in chunks}
+    if chunk_tokenizer_names != {tokenizer_name}:
+        raise ChunkingInputError(
+            "chunk tokenizer provenance must match the tokenizer_name declared for the report"
+        )
 
     evidence_start = normalised_source.find(gold_evidence_text)
     if evidence_start < 0:
@@ -389,6 +398,20 @@ def _append_sentence_unit(
     )
 
 
+def _combined_units_token_count(
+    *,
+    source_text: str,
+    units: list[_SentenceUnit],
+    token_counter: TokenCounter,
+) -> int:
+    """Count the exact emitted span, including separators between sentence units."""
+
+    if not units:
+        return 0
+
+    return token_counter.count(source_text[units[0].start : units[-1].end])
+
+
 def _tail_units_within_token_overlap(
     units: list[_SentenceUnit],
     *,
@@ -432,6 +455,7 @@ def _make_chunk(
         chunk_index=chunk_index,
         text=chunk_text,
         token_count=token_counter.count(chunk_text),
+        tokenizer_name=token_counter.name,
         char_count=len(chunk_text),
         source_char_start=source_offset + normalised_start,
         source_char_end=source_offset + normalised_end,
