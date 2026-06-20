@@ -203,3 +203,56 @@ def test_comparison_rejects_missing_case_coverage_for_one_pipeline() -> None:
             baseline_pipeline_id=PipelineId.CHAR_DENSE_NAIVE,
             case_outcomes=incomplete_outcomes,
         )
+
+
+def test_recall_uses_explicit_report_cutoff_not_full_candidate_pool() -> None:
+    outcomes = [
+        _outcome(
+            pipeline_id=pipeline_id,
+            case_id=CASE_IDS[0],
+            retrieved_rank=6,
+            included=False,
+            loss_stage=EvidenceLossStage.RANKING,
+            labels=[FailureLabel.RELEVANT_CHUNK_RANKED_TOO_LOW],
+        )
+        for pipeline_id in PipelineId
+    ]
+
+    report = build_comparison_report(
+        run_id="comparison_fixture_recall_at_five",
+        baseline_pipeline_id=PipelineId.CHAR_DENSE_NAIVE,
+        case_outcomes=outcomes,
+        retrieval_metric_k=5,
+    )
+
+    assert report.schema_version == "comparison_report_v2"
+    assert report.retrieval_metric_k == 5
+    assert all(metric.retrieval_recall_at_k.numerator == 0 for metric in report.pipeline_metrics)
+    assert all(metric.retrieval_recall_at_k.denominator == 1 for metric in report.pipeline_metrics)
+
+
+def test_comparison_rejects_metric_cutoff_above_shared_candidate_pool() -> None:
+    with pytest.raises(ComparisonInputError, match="at least retrieval_metric_k"):
+        build_comparison_report(
+            run_id="comparison_fixture_invalid_cutoff",
+            baseline_pipeline_id=PipelineId.CHAR_DENSE_NAIVE,
+            case_outcomes=_outcomes_for_all_pipelines(),
+            retrieval_metric_k=9,
+        )
+
+
+def test_comparison_rejects_unequal_candidate_pool_depths() -> None:
+    definitions = [
+        definition.model_copy(update={"retrieval_top_k": 7})
+        if definition.pipeline_id is PipelineId.TOKEN_DENSE_NAIVE
+        else definition
+        for definition in DEFAULT_PIPELINE_DEFINITIONS
+    ]
+
+    with pytest.raises(ComparisonInputError, match="same retrieval_top_k candidate-pool depth"):
+        build_comparison_report(
+            run_id="comparison_fixture_unequal_candidate_depth",
+            baseline_pipeline_id=PipelineId.CHAR_DENSE_NAIVE,
+            pipeline_definitions=definitions,
+            case_outcomes=_outcomes_for_all_pipelines(),
+        )

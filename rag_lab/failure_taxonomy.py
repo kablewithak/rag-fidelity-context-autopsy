@@ -36,6 +36,12 @@ FAILURE_TAXONOMY: dict[FailureLabel, FailureTaxonomyEntry] = {
         definition="Dense retrieval does not return the evidence-bearing chunk among the candidate set.",
         repair_recommendation="Inspect embeddings and add a complementary lexical or hybrid retrieval path.",
     ),
+    FailureLabel.RETRIEVAL_MISS: FailureTaxonomyEntry(
+        label=FailureLabel.RETRIEVAL_MISS,
+        loss_stage=EvidenceLossStage.RETRIEVAL,
+        definition="The evidence-bearing chunk is absent from the configured first-stage candidate set.",
+        repair_recommendation="Inspect candidate depth, corpus chunking, query formulation, and retrieval signals before changing the final model.",
+    ),
     FailureLabel.KEYWORD_RETRIEVAL_NEEDED: FailureTaxonomyEntry(
         label=FailureLabel.KEYWORD_RETRIEVAL_NEEDED,
         loss_stage=EvidenceLossStage.RETRIEVAL,
