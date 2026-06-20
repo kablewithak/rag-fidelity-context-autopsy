@@ -36,6 +36,37 @@ Locally validated synthetic-data benchmark. This is not a production deployment,
 
 The `char_dense_naive` baseline recorded 3 chunking-stage loss(es), 1 retrieval-stage loss(es), and 1 ranking-stage loss(es).
 
+## Deterministic repair sequence
+
+This sequence is derived only from observed baseline failure labels and fixed-pipeline comparison evidence. It does not add speculative repairs.
+
+### 1. Critical — `sentence_aware_token_chunking`
+
+- **Observed labels:** `bad_chunk_boundary`, `gold_evidence_split`
+- **Repair:** Replace character-boundary chunking with sentence-aware token chunking and retain bounded overlap only where a clause, table row, or event can cross the boundary.
+- **Expected signal:** Watch Recall@5 and evidence inclusion. In this fixed run, the supporting pipeline moved Recall@5 from 77.8% to 94.4% and evidence inclusion from 72.2% to 88.9%.
+- **Metrics to watch:** Recall@5, evidence inclusion
+- **Trade-off:** Sentence-aware splitting increases implementation and tokenizer-provenance discipline; count final emitted text, including separators, rather than trusting configured unit budgets.
+- **Supporting comparison:** `token_dense_naive`
+
+### 2. Critical — `hybrid_retrieval`
+
+- **Observed labels:** `dense_retrieval_miss`
+- **Repair:** Add BM25-backed hybrid retrieval so exact terms, identifiers, legal clauses, prices, and error codes can complement dense semantic recall.
+- **Expected signal:** Watch Recall@5 before changing ranking. In this fixed run, the supporting pipeline moved Recall@5 from 77.8% to 100.0% and evidence inclusion from 72.2% to 100.0%.
+- **Metrics to watch:** Recall@5, evidence inclusion
+- **Trade-off:** Hybrid retrieval adds lexical-index and fusion parameters that must remain fixed and attributable across comparisons; do not conceal candidate-depth changes behind a higher headline cutoff.
+- **Supporting comparison:** `token_hybrid_naive`
+
+### 3. High — `cross_encoder_reranking`
+
+- **Observed labels:** `relevant_chunk_ranked_too_low`
+- **Repair:** Apply cross-encoder reranking after candidate recall succeeds and before final context selection, so the most query-specific evidence reaches the context window.
+- **Expected signal:** Watch MRR@10 after candidate recall is already sufficient. In this fixed run, the supporting pipeline moved MRR@10 from 0.736 to 0.972 while preserving Recall@5 at 100.0%.
+- **Metrics to watch:** MRR@10, evidence inclusion
+- **Trade-off:** Reranking adds per-candidate inference cost and latency; bound candidate depth first, then verify that ordering improved without trading away recall.
+- **Supporting comparison:** `token_hybrid_rerank_budgeted`
+
 ## Regression gate
 
 A fresh run must preserve the fixed provenance, pipeline definitions, case set, Recall cutoff, and all baseline-included evidence. It may improve metrics, but it fails when Recall@5, MRR@10, or evidence inclusion falls below the reviewed baseline, or when dropped-evidence rate increases.
@@ -43,8 +74,7 @@ A fresh run must preserve the fixed provenance, pipeline definitions, case set, 
 ```powershell
 python .\scripts\run_comparison_baseline.py `
     --tokenizer tiktoken `
-    --tiktoken-encoding cl100k_base `
-    --verify
+    --tiktoken-encoding cl100k_base
 ```
 
 ## Non-claims
