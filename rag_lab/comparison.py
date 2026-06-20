@@ -23,6 +23,9 @@ from rag_lab.schemas import (
 )
 
 
+DEFAULT_RETRIEVAL_METRIC_K = 5
+
+
 class ComparisonInputError(ValueError):
     """Raised when a comparison report would make an ambiguous metric claim."""
 
@@ -213,7 +216,12 @@ class MetricRate(BaseModel):
 
 
 class PipelineMetrics(BaseModel):
-    """Metrics for one pipeline, computed only from fixed case outcomes."""
+    """Metrics for one pipeline, computed only from fixed case outcomes.
+
+    ``retrieval_recall_at_k`` is interpreted using the report-level
+    ``retrieval_metric_k`` value. Keeping the cutoff at report scope prevents every
+    pipeline from silently computing recall at a different candidate depth.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -245,8 +253,9 @@ class PipelineComparisonReport(BaseModel):
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, frozen=True)
 
-    schema_version: str = Field(default="comparison_report_v1", min_length=5, max_length=80)
+    schema_version: str = Field(default="comparison_report_v2", min_length=5, max_length=80)
     run_id: str = Field(pattern=r"^[a-z0-9_:-]+$", min_length=5, max_length=160)
+    retrieval_metric_k: int = Field(ge=1, le=100)
     baseline_pipeline_id: PipelineId
     pipeline_definitions: list[PipelineDefinition] = Field(min_length=4, max_length=4)
     case_outcomes: list[CasePipelineOutcome] = Field(min_length=4)
@@ -264,6 +273,23 @@ class PipelineComparisonReport(BaseModel):
             raise ValueError("pipeline_metrics must contain each fixed pipeline exactly once")
         if len(self.pipeline_definitions) != len(definition_ids):
             raise ValueError("pipeline_definitions must not repeat pipeline_id")
+
+        retrieval_depths = {definition.retrieval_top_k for definition in self.pipeline_definitions}
+        if len(retrieval_depths) != 1:
+            raise ValueError("all fixed pipelines must use the same retrieval_top_k candidate-pool depth")
+        retrieval_depth = retrieval_depths.pop()
+        if retrieval_depth < self.retrieval_metric_k:
+            raise ValueError("retrieval_top_k must be at least retrieval_metric_k")
+
+        definitions_by_pipeline_id = {
+            definition.pipeline_id: definition for definition in self.pipeline_definitions
+        }
+        for outcome in self.case_outcomes:
+            expected_top_k = definitions_by_pipeline_id[outcome.pipeline_id].retrieval_top_k
+            if outcome.requested_top_k != expected_top_k:
+                raise ValueError(
+                    "case outcome requested_top_k must match its pipeline definition retrieval_top_k"
+                )
 
         outcome_keys = {(outcome.pipeline_id, outcome.case_id) for outcome in self.case_outcomes}
         if len(outcome_keys) != len(self.case_outcomes):
@@ -293,6 +319,7 @@ def build_comparison_report(
     baseline_pipeline_id: PipelineId,
     pipeline_definitions: Iterable[PipelineDefinition] = DEFAULT_PIPELINE_DEFINITIONS,
     case_outcomes: Iterable[CasePipelineOutcome],
+    retrieval_metric_k: int = DEFAULT_RETRIEVAL_METRIC_K,
 ) -> PipelineComparisonReport:
     """Aggregate fixed case outcomes into a validated comparison report.
 
@@ -303,12 +330,17 @@ def build_comparison_report(
 
     definitions = list(pipeline_definitions)
     outcomes = list(case_outcomes)
-    _validate_input_coverage(definitions=definitions, outcomes=outcomes)
+    _validate_input_coverage(
+        definitions=definitions,
+        outcomes=outcomes,
+        retrieval_metric_k=retrieval_metric_k,
+    )
 
     metrics_by_pipeline = {
         pipeline_id: _build_pipeline_metrics(
             pipeline_id=pipeline_id,
             outcomes=[outcome for outcome in outcomes if outcome.pipeline_id is pipeline_id],
+            retrieval_metric_k=retrieval_metric_k,
         )
         for pipeline_id in PipelineId
     }
@@ -324,6 +356,7 @@ def build_comparison_report(
 
     return PipelineComparisonReport(
         run_id=run_id,
+        retrieval_metric_k=retrieval_metric_k,
         baseline_pipeline_id=baseline_pipeline_id,
         pipeline_definitions=definitions,
         case_outcomes=outcomes,
@@ -336,11 +369,33 @@ def _validate_input_coverage(
     *,
     definitions: list[PipelineDefinition],
     outcomes: list[CasePipelineOutcome],
+    retrieval_metric_k: int,
 ) -> None:
+    if retrieval_metric_k < 1:
+        raise ComparisonInputError("retrieval_metric_k must be at least 1")
+
     expected_ids = set(PipelineId)
     definition_ids = {definition.pipeline_id for definition in definitions}
     if len(definitions) != len(definition_ids) or definition_ids != expected_ids:
         raise ComparisonInputError("definitions must contain the four fixed pipeline IDs exactly once")
+
+    retrieval_depths = {definition.retrieval_top_k for definition in definitions}
+    if len(retrieval_depths) != 1:
+        raise ComparisonInputError(
+            "all fixed pipelines must use the same retrieval_top_k candidate-pool depth"
+        )
+    retrieval_depth = retrieval_depths.pop()
+    if retrieval_depth < retrieval_metric_k:
+        raise ComparisonInputError("retrieval_top_k must be at least retrieval_metric_k")
+
+    definitions_by_pipeline_id = {definition.pipeline_id: definition for definition in definitions}
+    for outcome in outcomes:
+        expected_top_k = definitions_by_pipeline_id[outcome.pipeline_id].retrieval_top_k
+        if outcome.requested_top_k != expected_top_k:
+            raise ComparisonInputError(
+                "case outcome requested_top_k must match its pipeline definition retrieval_top_k"
+            )
+
     if not outcomes:
         raise ComparisonInputError("comparison requires at least one case outcome per pipeline")
 
@@ -365,12 +420,18 @@ def _build_pipeline_metrics(
     *,
     pipeline_id: PipelineId,
     outcomes: list[CasePipelineOutcome],
+    retrieval_metric_k: int,
 ) -> PipelineMetrics:
     if not outcomes:
         raise ComparisonInputError(f"no outcomes supplied for pipeline {pipeline_id}")
 
     evaluated_case_count = len(outcomes)
-    retrieved_count = sum(outcome.retrieved_gold_rank is not None for outcome in outcomes)
+    retrieved_count = sum(
+        outcome.retrieved_gold_rank is not None
+        and outcome.retrieved_gold_rank <= retrieval_metric_k
+        for outcome in outcomes
+    )
+    retrieved_candidate_count = sum(outcome.retrieved_gold_rank is not None for outcome in outcomes)
     reciprocal_rank_sum = sum(
         1.0 / outcome.rank_used_for_context
         for outcome in outcomes
@@ -391,7 +452,7 @@ def _build_pipeline_metrics(
         retrieval_recall_at_k=_rate(retrieved_count, evaluated_case_count),
         mrr_at_10=reciprocal_rank_sum / evaluated_case_count,
         evidence_inclusion_rate=_rate(included_count, evaluated_case_count),
-        dropped_evidence_rate=_rate(dropped_count, retrieved_count),
+        dropped_evidence_rate=_rate(dropped_count, retrieved_candidate_count),
         failure_label_counts=dict(failure_counts),
         loss_stage_counts=dict(stage_counts),
     )

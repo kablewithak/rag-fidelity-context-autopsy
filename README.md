@@ -1,194 +1,136 @@
 # RAG Fidelity & Context Autopsy Lab
 
-A local-first RAG reliability lab for diagnosing where evidence dies before generation.
-
-The lab compares chunking, retrieval, reranking, and rendered-context assembly against fixed diagnostic cases. It shows whether evidence was split, missed, ranked too low, or dropped before it reached a generation boundary.
+A local-first RAG reliability lab for diagnosing how tokenization, retrieval, reranking, and context assembly affect whether evidence reaches the model.
 
 ## North star
 
-> Where did the evidence die, and which repair brought it back?
+Show **where evidence dies** in a RAG pipeline:
 
-This is not a token-counter toy or a prompt-only demo. It is an inspectable RAG reliability harness with deterministic cases, typed Pydantic contracts, explicit failure labels, traceable reports, and regression tests.
+- chunking splits or damages evidence;
+- retrieval misses it;
+- ranking leaves it too low;
+- context assembly drops it under a token budget; or
+- generation produces an answer unsupported by the supplied context.
 
-## Current proof assets
+The lab compares a deliberately weak baseline with a stronger intervention pipeline and produces traceable before/after evidence on fixed diagnostic cases.
 
-The repository currently contains two controlled tokenization diagnostics in addition to the real retrieval pipeline:
+## Current milestone
 
-1. **Chunk-boundary diagnostic**
-   - a character window deliberately cuts a complete export clause;
-   - sentence-aware token chunking preserves that same clause;
-   - the report proves gold-evidence split versus preservation.
+**Phase 7B — Real four-pipeline execution runner**
 
-2. **Rendered-context pressure diagnostic**
-   - complete gold evidence is present at reranked rank 3 in a fixed candidate trace;
-   - verbose source/rank/chunk wrappers consume enough measured capacity to drop it;
-   - compact citations retain it under the same calibrated context window;
-   - the report separates raw chunk tokens, tokenizer-count alignment, actual static prompt cost, and rendered wrapper tax.
+The repository now has a schema-first comparison contract and a local runner that derives
+one normalized outcome per fixed case and pipeline from real typed component traces.
 
-The deterministic scenarios are synthetic by design. They prove a specific mechanism, not universal prevalence.
+The runner executes the required ablations:
 
-## Why tokenization matters here
+1. `char_dense_naive`
+2. `token_dense_naive`
+3. `token_hybrid_naive`
+4. `token_hybrid_rerank_budgeted`
 
-Tokenization appears at three separate engineering boundaries:
+For each case, it records whether complete gold evidence:
 
-1. **Chunking boundary** — tokenizer-specific chunk limits decide where source text is divided. A poor character boundary can split a complete clause before retrieval begins.
-2. **Lexical retrieval boundary** — BM25 uses lexical normalization for exact-term matching. This is separate from model-tokenization and is recorded as `lexical_analyzer_name`.
-3. **Rendered-context boundary** — the selected tokenizer counts the actual static prompt, query, response contract, evidence separators, citation wrappers, raw evidence, and output reserve.
+- survived chunking;
+- was found in the shared first-stage candidate pool;
+- was high enough in the final ordering for selection; and
+- for the budgeted intervention, was included or dropped by measured context packing.
 
-For an included evidence candidate, the autopsy records:
+The runner retrieves eight first-stage candidates per pipeline and reports **Recall@5**
+from that shared candidate pool. The `comparison_report_v2` artifact serializes
+`retrieval_metric_k` so the cutoff behind every retrieval-recall value is explicit.
 
-```text
-chunk_token_count
-raw_context_token_count
-tokenizer_count_delta
-rendered_context_token_count
-rendering_token_tax
-```
+The machine-readable comparison report contains only bounded IDs, hashes, ranks, counts,
+metrics, and failure labels. Rich component traces are retained only in local process
+memory for inspection and are not serialized into that report.
 
-A zero `tokenizer_count_delta` in aligned mode is healthy. It does **not** mean the final prompt is free: `rendering_token_tax` exposes the cost of labels, citation metadata, separators, and prompt formatting.
-
-> Token counts are tokenizer-specific. Re-run chunking and context-budget evals when changing models, tokenizer families, prompt templates, response contracts, or citation wrappers.
-
-## Current capability
-
-- fixed synthetic corpus and schema-validated JSONL cases;
-- character, token-window, and sentence-aware token chunking;
-- BM25 lexical retrieval;
-- provider-neutral dense embedding boundary;
-- reciprocal-rank fusion;
-- cross-encoder reranking constrained to a fixed first-stage candidate set;
-- tokenizer-provenance contracts and mismatch diagnostics;
-- measured rendered-context packing with duplicate suppression and explicit drop reasons;
-- lost-evidence reporting only when complete gold evidence was present after reranking and died during context assembly;
-- SHA-256 text hashes and bounded report metadata instead of raw evidence in persistable autopsies.
-
-**Status:** locally validated on synthetic data. The four-pipeline comparison contract and metric reducer are implemented; the live comparison runner, executive markdown export, Streamlit, deployment, customer-data validation, and production monitoring are not implemented yet.
-
-## Local setup
-
-Python 3.11+ is supported. The repository is currently validated on Python 3.12.
-
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-```
-
-Install optional local runtime dependencies only when you need real tokenization and local embedding/reranking smoke runs:
-
-```powershell
-python -m pip install -e ".[dev,tiktoken,dense]"
-```
-
-## Validation
-
-```powershell
-python -m pytest
-```
-
-## Run the diagnostic proofs
-
-### 1. Character boundary failure versus sentence-aware token repair
-
-```powershell
-python .\scripts\run_chunking_boundary_diagnostic.py `
-    --tokenizer tiktoken `
-    --tiktoken-encoding cl100k_base
-```
-
-Check:
-
-```text
-character_baseline.gold_evidence_split: true
-sentence_aware_repair.gold_evidence_preserved: true
-```
-
-### 2. Rendered-context pressure baseline versus compact-wrapper repair
-
-```powershell
-python .\scripts\run_context_pressure_diagnostic.py `
-    --tokenizer tiktoken `
-    --tiktoken-encoding cl100k_base
-```
-
-Check:
-
-```text
-baseline_verbose_audit.context_autopsy.gold_evidence_dropped: true
-repair_compact_citation.context_autopsy.gold_evidence_included: true
-baseline_verbose_audit.lost_evidence.loss_stage: context_assembly
-```
-
-### 3. Real local hybrid retrieval, reranking, and context autopsy
-
-```powershell
-python .\scripts\run_context_autopsy_smoke.py `
-    --tokenizer tiktoken `
-    --tiktoken-encoding cl100k_base
-```
-
-The first real runtime may download model weights and tokenizer assets. This command proves that the local model path runs. The deterministic diagnostics remain the regression proof for the specific boundary and context-pressure mechanisms.
+**Status:** production-shaped local evaluation harness over synthetic data. It is not a
+production deployment, a customer-data evaluation, or a grounded-answer guarantee.
 
 ## Repository layout
 
 ```text
 rag-fidelity-context-autopsy/
 ├── data/
-│   ├── corpus/                 # Fixed synthetic source documents only
+│   ├── corpus/                 # Synthetic source documents only
 │   └── eval_cases.jsonl        # Fixed diagnostic cases
 ├── docs/
-│   ├── ADR-001-hybrid-fusion.md
-│   ├── ADR-002-cross-encoder-reranking.md
-│   ├── ADR-003-context-budget-autopsy.md
-│   ├── ADR-004-tokenizer-alignment.md
-│   ├── ADR-005-diagnostic-tokenization-pressure.md
 │   ├── ADR-006-four-pipeline-comparison-harness.md
-│   └── PROJECT_SCOPE.md
+│   └── ADR-007-real-four-pipeline-execution.md
 ├── outputs/                    # Git-ignored generated reports
-├── scripts/
-│   ├── run_chunking_boundary_diagnostic.py
-│   ├── run_context_pressure_diagnostic.py
-│   ├── run_context_autopsy_smoke.py
-│   ├── run_dense_smoke.py
-│   ├── run_hybrid_smoke.py
-│   └── run_rerank_smoke.py
 ├── rag_lab/
-│   ├── chunkers.py
-│   ├── comparison.py              # Typed four-pipeline metric reducer
-│   ├── context_assembly.py
-│   ├── corpus_loader.py
-│   ├── diagnostic_scenarios.py
-│   ├── embedders.py
-│   ├── eval_cases.py
-│   ├── failure_taxonomy.py
-│   ├── rerankers.py
-│   ├── retrievers.py
-│   ├── schemas.py
-│   └── tokenizers.py
+│   ├── chunkers.py             # Character and sentence-aware token chunking
+│   ├── retrievers.py           # BM25, dense, and hybrid retrieval traces
+│   ├── rerankers.py            # Cross-encoder reranking traces
+│   ├── context_assembly.py     # Measured rendered-context packing
+│   ├── comparison.py           # Fixed comparison contracts and metric reducer
+│   ├── comparison_runner.py    # Real four-pipeline execution harness
+│   └── schemas.py              # Pydantic boundary contracts
+├── scripts/
+│   └── run_four_pipeline_comparison.py
 └── tests/
 ```
 
+## Local setup
 
-## Phase 7 comparison contract
+This project supports Python 3.11+ and is currently validated on Python 3.12.
 
-The project now contains a schema-first contract for the PRD-required ablations:
-
-```text
-char_dense_naive
-token_dense_naive
-token_hybrid_naive
-token_hybrid_rerank_budgeted
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev,dense,tiktoken]"
 ```
 
-Its metric reducer accepts one typed outcome per pipeline and fixed evaluation case, then emits a privacy-bounded JSON-ready comparison report with Recall@k, MRR@10, evidence-inclusion rate, dropped-evidence rate, failure counts, trace references, and baseline-to-intervention deltas. It does not yet execute those four pipelines; the next Phase 7 slice will derive the outcomes from real traces.
+The first real comparison run also requires the selected Sentence Transformers models
+and `tiktoken` encoding to be available locally. The runtime does not silently substitute
+another model or tokenizer.
+
+## Run tests
+
+```powershell
+python -m pytest
+```
+
+## Run the real four-pipeline comparison
+
+```powershell
+python .\scripts\run_four_pipeline_comparison.py `
+    --tokenizer tiktoken `
+    --tiktoken-encoding cl100k_base `
+    --retrieval-metric-k 5
+```
+
+The command runs every fixed evaluation case through all four pipelines and prints a
+privacy-bounded JSON comparison report to stdout. The metric cutoff must not exceed the
+shared `retrieval_top_k` candidate depth, and the report records the selected cutoff.
+
+This Phase 7B command does **not** write a report file. Phase 7C will add explicit,
+versioned output writing plus the executive markdown report once the runtime result has
+been reviewed and stabilized.
 
 ## Data and privacy posture
 
-The corpus and eval cases are synthetic. Do not add customer transcripts, support tickets, credentials, secrets, private documents, or personal data to this repository.
+The corpus and evaluation cases are synthetic. Do not add real customer transcripts,
+customer support tickets, credentials, or personally identifiable information to this
+repository.
 
-`ContextAssemblyResult.context_text` is an ephemeral rendered prompt handoff. Persist or export the bounded `ContextAutopsyReport`, not raw context text, by default. Reports retain identifiers, tokenizer provenance, ranks, counts, hashes, and drop reasons where raw text is unnecessary.
+The comparison report retains identifiers, hashes, ranks, counts, metrics, and failure
+labels rather than raw chunks, source documents, prompts, or generated answers. Keep rich
+traces local unless a later approved review workflow requires more data.
+
+## Planned build order
+
+1. Fixed eval cases and schemas — **complete**
+2. Character, token, and sentence-aware chunking — **complete**
+3. BM25, dense retrieval, hybrid fusion, and reranking — **complete**
+4. Token-budget-aware context autopsy and lost-evidence reports — **complete**
+5. Comparison contracts and real four-pipeline runner — **in progress**
+6. Versioned JSON/markdown comparison report and regression gate
+7. Streamlit demonstration surface
+8. Hugging Face Spaces CPU deployment
 
 ## Non-claims
 
-This lab does not claim to eliminate hallucinations, prove all RAG systems improve, choose the best model for every language, prove production readiness, or operate safely on customer data. It demonstrates specific RAG failure modes and repair patterns on fixed synthetic diagnostic cases.
+This repository does not claim to eliminate hallucinations, prove all RAG systems improve,
+operate on customer data, represent production readiness, or validate final generated
+answers. It is an inspectable diagnostic lab operating on fixed synthetic cases.

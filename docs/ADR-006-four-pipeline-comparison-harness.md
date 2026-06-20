@@ -32,15 +32,21 @@ The layer defines:
 - one bounded outcome per `(pipeline_id, case_id)`;
 - trace references by ID and SHA-256, never raw evidence or prompts;
 - deterministic metrics with retained numerators and denominators;
+- a report-level retrieval metric cutoff, independent from the candidate-pool depth;
 - baseline-to-intervention deltas;
-- validation that every pipeline ran the same fixed non-empty case set exactly once.
+- validation that every pipeline ran the same fixed non-empty case set exactly once; and
+- validation that every pipeline uses one shared candidate-pool depth that is at least the
+  retrieval metric cutoff.
 
 The first implementation is a pure reducer. It receives already-derived outcomes and
 does not load models, invoke retrievers, read corpus files, or write outputs.
 
 ## Metric semantics
 
-- **Recall@k:** first-stage retrieval found complete gold evidence within the requested top-k, divided by all evaluated cases.
+- **Recall@5 by default:** first-stage retrieval found complete gold evidence at rank five
+  or better, divided by all evaluated cases. The runner may retrieve a deeper shared
+  candidate pool for hybrid fusion and reranking, but the report serializes
+  `retrieval_metric_k` so the recall cutoff is never inferred from that pool depth.
 - **MRR@10:** reciprocal rank of the final ranking stage used for context selection; zero when gold evidence is absent or ranked below ten; averaged across all cases.
 - **Evidence-inclusion rate:** complete gold evidence reached final context, divided by all evaluated cases.
 - **Dropped-evidence rate:** evidence loss at `context_assembly`, divided by cases where first-stage retrieval found the gold evidence.
@@ -56,6 +62,8 @@ A `MetricRate` stores numerator, denominator, and exact derived value so no perc
 - Baseline and intervention results cannot silently use different case sets.
 - The report can be serialized to JSON without raw synthetic evidence, source text, or rendered prompts.
 - Metric deltas are mechanically derived rather than hand-written into a portfolio claim.
+- A deeper retrieval pool cannot silently make recall look stronger because the report-level
+  cutoff is independently declared and validated.
 
 ### Negative
 

@@ -38,6 +38,7 @@ class FailureLabel(StrEnum):
     BAD_CHUNK_BOUNDARY = "bad_chunk_boundary"
     GOLD_EVIDENCE_SPLIT = "gold_evidence_split"
     DENSE_RETRIEVAL_MISS = "dense_retrieval_miss"
+    RETRIEVAL_MISS = "retrieval_miss"
     KEYWORD_RETRIEVAL_NEEDED = "keyword_retrieval_needed"
     RERANKER_NEEDED = "reranker_needed"
     RELEVANT_CHUNK_RANKED_TOO_LOW = "relevant_chunk_ranked_too_low"
