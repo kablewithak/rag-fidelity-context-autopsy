@@ -1,4 +1,4 @@
-"""Read-only Streamlit explorers for the fixed synthetic RAG reliability benchmark."""
+﻿"""Read-only Streamlit explorers for the fixed synthetic RAG reliability benchmark."""
 
 from __future__ import annotations
 
@@ -17,6 +17,12 @@ from rag_lab.chunking_explorer import (
     ControlledBoundaryProbeView,
     load_chunking_case_views,
 )
+from rag_lab.context_autopsy_explorer import (
+    ContextAssemblyView,
+    ContextAutopsyCaseView,
+    ContextDecisionView,
+    load_context_autopsy_case_view,
+)
 from rag_lab.retrieval_explorer import (
     CandidateSetState,
     RetrievalCaseView,
@@ -31,7 +37,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 st.set_page_config(
     page_title="RAG Fidelity & Context Autopsy",
-    page_icon="🔎",
+    page_icon="ðŸ”Ž",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -58,18 +64,26 @@ def load_retrieval_views() -> tuple[RetrievalCaseView, ...]:
     return load_retrieval_case_views(project_root=PROJECT_ROOT)
 
 
+@st.cache_data(show_spinner=False)
+def load_context_autopsy_view() -> ContextAutopsyCaseView:
+    """Cache the fixed controlled context-pressure accounting view."""
+
+    return load_context_autopsy_case_view(project_root=PROJECT_ROOT)
+
+
 def main() -> None:
-    """Render read-only evidence, chunking, and retrieval-autopsy surfaces."""
+    """Render read-only evidence, chunking, retrieval, and context-autopsy surfaces."""
 
     st.title("RAG Fidelity & Context Autopsy")
     st.caption(
-        "Read-only reliability demo · fixed synthetic cases · reviewed four-pipeline baseline"
+        "Read-only reliability demo Â· fixed synthetic cases Â· reviewed four-pipeline baseline"
     )
 
     try:
         failure_views = load_failure_views()
         chunking_views = load_chunking_views()
         retrieval_views = load_retrieval_views()
+        context_autopsy_view = load_context_autopsy_view()
     except (OSError, RuntimeError, ValueError) as error:
         st.error("The explorer could not load its fixed synthetic benchmark assets.")
         st.exception(error)
@@ -89,7 +103,7 @@ def main() -> None:
         st.header("Explorer")
         selected_surface = st.radio(
             "Read-only surface",
-            options=("Failure case", "Chunking", "Retrieval"),
+            options=("Failure case", "Chunking", "Retrieval", "Context autopsy"),
             horizontal=False,
         )
         st.divider()
@@ -105,20 +119,24 @@ def main() -> None:
             "This demo reads fixed synthetic cases and a reviewed baseline artifact. "
             "The Chunking Explorer deterministically emits local chunks with "
             "`tiktoken:cl100k_base`. The Retrieval Explorer reads committed candidate "
-            "presence, ranks, loss labels, and trace IDs. It does not run embeddings, "
-            "retrieval, reranking, context assembly, or answer generation."
+            "presence, ranks, loss labels, and trace IDs. The Context Autopsy Explorer "
+            "runs only the fixed local context-pressure trace to measure rendered prompt "
+            "tax under an explicit tokenizer. It does not run embeddings, retrieval, "
+            "reranking, or answer generation."
         )
         st.caption(
-            "No customer data, credentials, prompts, raw retrieval candidates, or "
-            "generated answers are loaded."
+            "No customer data, credentials, prompts, raw retrieval candidates, raw "
+            "rendered context, or generated answers are loaded."
         )
 
     if selected_surface == "Failure case":
         _render_failure_case(failure_by_case_id[selected_case_id])
     elif selected_surface == "Chunking":
         _render_chunking_case(chunking_by_case_id[selected_case_id])
-    else:
+    elif selected_surface == "Retrieval":
         _render_retrieval_case(retrieval_by_case_id[selected_case_id])
+    else:
+        _render_context_autopsy_case(context_autopsy_view)
 
 
 def _render_failure_case(view: FailureCaseView) -> None:
@@ -183,7 +201,7 @@ def _render_chunking_case(view: ChunkingCaseView) -> None:
     """Render character versus sentence-aware token chunking for one synthetic case."""
 
     case = view.case
-    st.subheader(f"{case.case_id.replace('_', ' ').title()} · Chunking Autopsy")
+    st.subheader(f"{case.case_id.replace('_', ' ').title()} Â· Chunking Autopsy")
     st.caption(
         "This is a deterministic local chunking comparison. It is not a retrieval, "
         "reranking, context-packing, or answer-generation result."
@@ -195,7 +213,7 @@ def _render_chunking_case(view: ChunkingCaseView) -> None:
     st.markdown("### Gold evidence under inspection")
     st.code(case.gold_evidence_text, language=None)
     st.caption(
-        f"Synthetic source span: characters {view.gold_evidence_start}–"
+        f"Synthetic source span: characters {view.gold_evidence_start}â€“"
         f"{view.gold_evidence_end} of {view.source_char_count}"
     )
 
@@ -278,7 +296,7 @@ def _render_retrieval_case(view: RetrievalCaseView) -> None:
     case = view.case
     baseline = view.baseline_view
 
-    st.subheader(f"{case.case_id.replace('_', ' ').title()} · Retrieval Autopsy")
+    st.subheader(f"{case.case_id.replace('_', ' ').title()} Â· Retrieval Autopsy")
     st.caption(
         "This surface reads reviewed candidate presence and rank fields from the committed "
         "baseline artifact. It does not perform a fresh retrieval or reranking run."
@@ -355,6 +373,167 @@ def _render_retrieval_case(view: RetrievalCaseView) -> None:
         )
 
 
+
+def _render_context_autopsy_case(view: ContextAutopsyCaseView) -> None:
+    """Render the fixed controlled context-pressure autopsy without rerunning retrieval."""
+
+    case = view.case
+    verbose = view.verbose_audit
+    compact = view.compact_citation
+
+    st.subheader(f"{case.case_id.replace('_', ' ').title()} Â· Context Autopsy")
+    st.warning(
+        "Controlled local diagnostic: both render profiles receive the same calibrated context "
+        "window and the same fixed reranked candidate order. This is a mechanism proof, not a "
+        "claim that the reviewed four-pipeline benchmark has a standard context-budget regression."
+    )
+    st.caption(
+        "The screen runs deterministic context accounting only. It does not run embeddings, "
+        "retrieval, reranking, or answer generation."
+    )
+
+    st.markdown("### Question")
+    st.info(case.query)
+
+    st.markdown("### Gold evidence under inspection")
+    st.code(case.gold_evidence_text, language=None)
+    st.caption(
+        f"Tokenizer: `{view.tokenizer_name}` Â· fixed sentence-aware source budget: "
+        f"{view.sentence_aware_max_tokens} tokens"
+    )
+
+    metric_columns = st.columns(4)
+    _render_context_metric(
+        metric_columns[0],
+        label="Calibrated context window",
+        value=str(view.calibrated_context_tokens),
+        detail=f"{view.reserved_output_tokens} reserved output tokens",
+    )
+    _render_context_metric(
+        metric_columns[1],
+        label="Verbose static prompt tax",
+        value=str(verbose.static_prompt_tokens),
+        detail=f"{verbose.available_evidence_tokens} evidence tokens available",
+    )
+    _render_context_metric(
+        metric_columns[2],
+        label="Verbose gold evidence",
+        value="Dropped" if verbose.gold_evidence_dropped else "Included",
+        detail=(
+            verbose.gold_evidence_drop_reason.value.replace("_", " ")
+            if verbose.gold_evidence_drop_reason is not None
+            else "no drop reason"
+        ),
+    )
+    _render_context_metric(
+        metric_columns[3],
+        label="Compact gold evidence",
+        value="Included" if compact.gold_evidence_included else "Dropped",
+        detail=f"{compact.remaining_evidence_tokens} evidence tokens remaining",
+    )
+
+    st.markdown("### Same budget, different rendered context cost")
+    verbose_column, compact_column = st.columns(2)
+    with verbose_column:
+        _render_context_profile(
+            title="Verbose audit wrappers",
+            assembly=verbose,
+        )
+    with compact_column:
+        _render_context_profile(
+            title="Compact citation wrappers",
+            assembly=compact,
+        )
+
+    st.markdown("### Controlled loss diagnosis")
+    diagnosis = view.loss_diagnosis
+    st.error(
+        f"Gold evidence was reranked at #{diagnosis.gold_evidence_rank_before_context}, then "
+        f"dropped because `{diagnosis.drop_reason.value}` under verbose audit wrappers."
+    )
+    st.write(diagnosis.evidence_summary)
+    st.info(diagnosis.repair_recommendation)
+    st.caption(
+        "Failure labels: "
+        + ", ".join(label.value.replace("_", " ") for label in diagnosis.failure_labels)
+    )
+
+    with st.expander("How to read this screen", expanded=False):
+        st.markdown(
+            "- **Static prompt tax:** tokens consumed by the measured system instruction, question, "
+            "and response contract before any evidence enters context.\n"
+            "- **Rendered context cost:** raw evidence tokens plus wrapper and citation tokens.\n"
+            "- **Same calibrated window:** both profiles share one total context budget and one "
+            "reserved-output allowance.\n"
+            "- **Verbose audit wrappers:** retain richer per-chunk metadata but can displace "
+            "lower-ranked evidence under pressure.\n"
+            "- **Compact citation wrappers:** reduce wrapper tax and retain the rank-three gold "
+            "candidate in this fixed diagnostic.\n"
+            "- **No raw rendered context:** this screen displays decision metadata only, not the "
+            "assembled prompt or raw candidate text."
+        )
+
+
+def _render_context_profile(*, title: str, assembly: ContextAssemblyView) -> None:
+    """Render bounded accounting and per-candidate decisions for one fixed wrapper profile."""
+
+    st.markdown(f"#### {title}")
+    if assembly.gold_evidence_included:
+        st.success("Gold evidence reached final rendered context.")
+    else:
+        reason = (
+            assembly.gold_evidence_drop_reason.value.replace("_", " ")
+            if assembly.gold_evidence_drop_reason is not None
+            else "unknown reason"
+        )
+        st.warning(f"Gold evidence did not reach final rendered context: {reason}.")
+
+    st.caption(
+        f"Profile: `{assembly.render_profile.value}` Â· candidates: {assembly.candidate_count} Â· "
+        f"included: {assembly.included_chunk_count} Â· dropped: {assembly.dropped_chunk_count}"
+    )
+    st.caption(
+        f"Raw evidence used: {assembly.used_raw_evidence_tokens} Â· "
+        f"rendered evidence used: {assembly.used_rendered_evidence_tokens} Â· "
+        f"wrapper tax: {assembly.rendering_token_tax_tokens} Â· "
+        f"remaining: {assembly.remaining_evidence_tokens}"
+    )
+    st.dataframe(
+        [_context_decision_row(decision) for decision in assembly.decisions],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
+def _render_context_metric(
+    container: object,
+    *,
+    label: str,
+    value: str,
+    detail: str,
+) -> None:
+    """Render a compact context-autopsy metric without returning UI state."""
+
+    container.metric(label, value)
+    container.caption(detail)
+
+
+def _context_decision_row(decision: ContextDecisionView) -> dict[str, object]:
+    """Render bounded candidate accounting without raw chunk text or rendered prompt content."""
+
+    return {
+        "Reranked rank": f"#{decision.reranked_rank}",
+        "First-stage rank": f"#{decision.first_stage_rank}",
+        "Chunk ID": decision.chunk_id,
+        "Raw tokens": decision.raw_context_token_count,
+        "Rendered tokens": decision.rendered_context_token_count,
+        "Wrapper tax": decision.rendering_token_tax,
+        "Gold evidence": "Yes" if decision.gold_evidence_match else "No",
+        "Decision": "Included" if decision.included else "Dropped",
+        "Drop reason": decision.drop_reason.value if decision.drop_reason else "â€”",
+    }
+
+
 def _render_controlled_boundary_probe(
     *,
     probe: ControlledBoundaryProbeView,
@@ -371,7 +550,7 @@ def _render_controlled_boundary_probe(
         "benchmark configuration and does not change any benchmark metric."
     )
     st.caption(
-        f"Controlled character window: {probe.character_window_characters} characters · "
+        f"Controlled character window: {probe.character_window_characters} characters Â· "
         f"Sentence-aware repair budget: {probe.sentence_aware_max_tokens} tokens"
     )
     character_column, token_column = st.columns(2)
@@ -436,9 +615,9 @@ def _render_chunking_strategy(
         st.warning("Gold evidence is not preserved by this emitted chunk set.")
 
     st.caption(
-        f"Tokenizer: `{report.tokenizer_name}` · "
-        f"Boundary quality: `{report.boundary_quality.value}` · "
-        f"Average chunk size: {report.avg_token_count} tokens · "
+        f"Tokenizer: `{report.tokenizer_name}` Â· "
+        f"Boundary quality: `{report.boundary_quality.value}` Â· "
+        f"Average chunk size: {report.avg_token_count} tokens Â· "
         f"Maximum: {report.max_token_count} tokens"
     )
 
@@ -449,8 +628,8 @@ def _render_chunking_strategy(
             gold_end=gold_end,
         )
         label = (
-            f"Chunk {chunk.chunk_index + 1} · {chunk.token_count} tokens · "
-            f"source chars {chunk.source_char_start}–{chunk.source_char_end} · {relation}"
+            f"Chunk {chunk.chunk_index + 1} Â· {chunk.token_count} tokens Â· "
+            f"source chars {chunk.source_char_start}â€“{chunk.source_char_end} Â· {relation}"
         )
         with st.expander(label, expanded=relation != "no gold evidence"):
             st.code(chunk.text, language=None)
@@ -518,11 +697,11 @@ def _status_row(status: PipelineEvidenceStatus) -> dict[str, object]:
         "Retrieved rank": status.retrieved_gold_rank,
         "Reranked rank": status.reranked_gold_rank,
         "Rank used for context": status.rank_used_for_context,
-        "Loss stage": status.loss_stage.value if status.loss_stage else "—",
+        "Loss stage": status.loss_stage.value if status.loss_stage else "â€”",
         "Failure labels": (
             ", ".join(label.value for label in status.failure_labels)
             if status.failure_labels
-            else "—"
+            else "â€”"
         ),
     }
 
@@ -541,7 +720,7 @@ def _retrieval_row(view: RetrievalPipelineView) -> dict[str, object]:
         "Reranked rank": _rank_label(view.reranked_gold_rank),
         "Rank used for context": _rank_label(view.rank_used_for_context),
         "Final evidence": "Included" if view.gold_evidence_included else "Not included",
-        "Loss stage": view.loss_stage.value if view.loss_stage else "—",
+        "Loss stage": view.loss_stage.value if view.loss_stage else "â€”",
     }
 
 
@@ -589,7 +768,7 @@ def _candidate_state_label(state: CandidateSetState) -> str:
 def _rank_label(rank: int | None) -> str:
     """Render a rank without representing absence as rank zero."""
 
-    return f"#{rank}" if rank is not None else "—"
+    return f"#{rank}" if rank is not None else "â€”"
 
 
 def _loss_detail(view: RetrievalPipelineView) -> str:
@@ -605,7 +784,7 @@ def _loss_detail(view: RetrievalPipelineView) -> str:
 def _case_label(view: FailureCaseView) -> str:
     """Make the selector useful without leaking more corpus data into the sidebar."""
 
-    return f"{view.case.case_id} · {view.case.document_type.value.replace('_', ' ')}"
+    return f"{view.case.case_id} Â· {view.case.document_type.value.replace('_', ' ')}"
 
 
 if __name__ == "__main__":

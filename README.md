@@ -16,9 +16,9 @@ The lab compares a deliberately weak baseline with stronger interventions and pr
 
 ## Current milestone
 
-**Phase 9C — Read-only Streamlit Retrieval Explorer**
+**Phase 9D — Controlled Streamlit Context Autopsy Explorer**
 
-The repository now has four layers:
+The repository now has five layers:
 
 1. A reviewed, committed four-pipeline synthetic benchmark:
    ```text
@@ -28,6 +28,7 @@ The repository now has four layers:
 2. A read-only Failure Case Explorer for inspecting the reviewed evidence lifecycle across all four pipelines.
 3. A read-only Chunking Explorer for comparing character boundaries with sentence-aware token chunking over the same fixed synthetic case.
 4. A read-only Retrieval Explorer for inspecting committed candidate presence, first-stage rank, reranked rank, final evidence selection, and bounded trace references.
+5. A controlled Context Autopsy Explorer for measuring how static prompt tax and evidence wrappers can displace a reranked gold candidate under one calibrated token window.
 
 The benchmark artifact captures bounded comparison evidence and exact provenance:
 
@@ -67,7 +68,7 @@ docs/reports/four_pipeline_baseline_v1.md
 ```text
 rag-fidelity-context-autopsy/
 ├── app/
-│   └── streamlit_app.py           # Read-only Failure, Chunking, and Retrieval Explorers
+│   └── streamlit_app.py           # Read-only Failure, Chunking, Retrieval, and Context Autopsy Explorers
 ├── artifacts/
 │   └── comparisons/                # Reviewed bounded benchmark artifacts
 ├── data/
@@ -81,6 +82,7 @@ rag-fidelity-context-autopsy/
 │   ├── case_explorer.py            # Typed read-only evidence-lifecycle views
 │   ├── chunking_explorer.py        # Typed character versus token chunking views
 │   ├── retrieval_explorer.py       # Typed reviewed candidate and rank views
+│   ├── context_autopsy_explorer.py # Typed controlled context-budget accounting view
 │   ├── chunkers.py                 # Character and sentence-aware token chunking
 │   ├── retrievers.py               # BM25, dense, and hybrid retrieval traces
 │   ├── rerankers.py                # Cross-encoder reranking traces
@@ -117,11 +119,12 @@ python -m pytest
 
 ## Run the read-only Streamlit explorers
 
-The app contains three local-only, read-only surfaces:
+The app contains four local-only, read-only surfaces:
 
 - **Failure case:** inspect a fixed case's reviewed evidence lifecycle across all four pipelines.
 - **Chunking:** inspect actual standard character and sentence-aware outcomes, then open the separate controlled boundary probe for `token_boundary_export_017` to see a deliberately positioned character cut split the same gold clause.
 - **Retrieval:** inspect the reviewed top-8 candidate boundary, first-stage rank, reranked rank where available, final evidence selection, loss stage, and bounded trace IDs.
+- **Context autopsy:** inspect one fixed controlled pressure case where verbose audit wrappers drop a reranked gold candidate and compact citation wrappers retain it under the same calibrated context window.
 
 ```powershell
 python -m streamlit run .\app\streamlit_app.py
@@ -132,8 +135,9 @@ Open the local URL printed by Streamlit. Select a fixed diagnostic case in the s
 - **Failure case** shows query, gold evidence, expected answer, diagnostic note, baseline loss stage, failure labels, and per-pipeline ranks.
 - **Chunking** deterministically emits local chunks with `tiktoken:cl100k_base` over the synthetic source document. It shows emitted chunks, measured token counts, source-character spans, and whether one emitted chunk contains the complete gold evidence. The `token_boundary_export_017` case also exposes a clearly labelled controlled boundary probe, which is separate from standard benchmark execution and intentionally places a character boundary inside the known clause.
 - **Retrieval** reads the reviewed comparison artifact without rerunning models. It distinguishes evidence unavailable after chunking from a genuine candidate miss, shows candidate-pool depth separately from the Recall@5 reporting cutoff, displays first-stage and reranked ranks, and exposes bounded trace IDs only.
+- **Context autopsy** executes only the fixed synthetic context-pressure trace with `tiktoken:cl100k_base`. It measures static prompt tax, per-candidate wrapper tax, include/drop decisions, and gold-evidence retention under two render profiles using the same calibrated context window. It does not rerun embeddings, retrieval, or reranking.
 
-The app does not rerun embeddings, retrieval, reranking, context assembly, or answer generation. It does not write benchmark artifacts or change the fixed corpus.
+The app does not write benchmark artifacts or change the fixed corpus. The Context Autopsy Explorer is a controlled mechanism proof, not a claim that the standard reviewed benchmark contains a context-budget regression.
 
 ## Reproduce and verify the baseline
 
@@ -165,7 +169,7 @@ python .\scripts\run_four_pipeline_comparison.py `
 
 The corpus and evaluation cases are synthetic. Do not add real customer transcripts, customer support tickets, credentials, or personally identifiable information to this repository.
 
-The Chunking Explorer renders emitted chunks from the synthetic corpus only. The Retrieval Explorer displays only reviewed ranks, loss labels, and bounded trace IDs. Keep rich traces local unless an approved review workflow requires more data. The committed comparison artifacts retain identifiers, hashes, ranks, counts, metrics, and failure labels rather than raw chunks, source documents, prompts, candidate scores, rendered context, or generated answers.
+The Chunking Explorer renders emitted chunks from the synthetic corpus only. The Retrieval Explorer displays only reviewed ranks, loss labels, and bounded trace IDs. The Context Autopsy Explorer displays bounded decision metadata only, never raw rendered context or candidate text. Keep rich traces local unless an approved review workflow requires more data. The committed comparison artifacts retain identifiers, hashes, ranks, counts, metrics, and failure labels rather than raw chunks, source documents, prompts, candidate scores, rendered context, or generated answers.
 
 ## Planned build order
 
@@ -178,7 +182,7 @@ The Chunking Explorer renders emitted chunks from the synthetic corpus only. The
 7. Streamlit Failure Case Explorer — **complete**
 8. Streamlit Chunking Explorer — **complete** (standard view plus separate controlled boundary probe)
 9. Streamlit Retrieval Explorer — **complete**
-10. Streamlit context-autopsy explorer
+10. Controlled Streamlit Context Autopsy Explorer — **complete**
 11. Streamlit evaluation report and guided demo flow
 12. Hugging Face Spaces CPU deployment
 
