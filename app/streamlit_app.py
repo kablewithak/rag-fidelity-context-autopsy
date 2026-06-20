@@ -1,4 +1,4 @@
-"""Read-only Streamlit Failure Case Explorer for the fixed synthetic benchmark."""
+"""Read-only Streamlit explorers for the fixed synthetic RAG reliability benchmark."""
 
 from __future__ import annotations
 
@@ -11,6 +11,13 @@ from rag_lab.case_explorer import (
     PipelineEvidenceStatus,
     load_failure_case_views,
 )
+from rag_lab.chunking_explorer import (
+    ChunkingCaseView,
+    ChunkingStrategyView,
+    ControlledBoundaryProbeView,
+    load_chunking_case_views,
+)
+from rag_lab.schemas import TextChunk
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -25,54 +32,74 @@ st.set_page_config(
 
 
 @st.cache_data(show_spinner=False)
-def load_views() -> tuple[FailureCaseView, ...]:
-    """Cache only the small, reviewed static view model for this read-only demo."""
+def load_failure_views() -> tuple[FailureCaseView, ...]:
+    """Cache the reviewed static baseline view used by the Failure Case Explorer."""
 
     return load_failure_case_views(project_root=PROJECT_ROOT)
 
 
+@st.cache_data(show_spinner=False)
+def load_chunking_views() -> tuple[ChunkingCaseView, ...]:
+    """Cache deterministic chunking views over the fixed synthetic corpus."""
+
+    return load_chunking_case_views(project_root=PROJECT_ROOT)
+
+
 def main() -> None:
-    """Render the first operator-facing surface without rerunning models."""
+    """Render read-only evidence-lifecycle and chunking-autopsy surfaces."""
 
     st.title("RAG Fidelity & Context Autopsy")
     st.caption(
-        "Read-only Failure Case Explorer · fixed synthetic cases · reviewed four-pipeline baseline"
+        "Read-only reliability demo · fixed synthetic cases · reviewed four-pipeline baseline"
     )
 
     try:
-        views = load_views()
-    except (OSError, ValueError) as error:
-        st.error(
-            "The explorer could not load the fixed evaluation cases or reviewed baseline artifact."
-        )
+        failure_views = load_failure_views()
+        chunking_views = load_chunking_views()
+    except (OSError, RuntimeError, ValueError) as error:
+        st.error("The explorer could not load its fixed synthetic benchmark assets.")
         st.exception(error)
         st.stop()
 
-    views_by_case_id = {view.case.case_id: view for view in views}
+    failure_by_case_id = {view.case.case_id: view for view in failure_views}
+    chunking_by_case_id = {view.case.case_id: view for view in chunking_views}
+    if set(failure_by_case_id) != set(chunking_by_case_id):
+        st.error("The failure and chunking explorer case coverage does not match.")
+        st.stop()
 
     with st.sidebar:
+        st.header("Explorer")
+        selected_surface = st.radio(
+            "Read-only surface",
+            options=("Failure case", "Chunking"),
+            horizontal=False,
+        )
+        st.divider()
         st.header("Case selection")
         selected_case_id = st.selectbox(
             "Fixed diagnostic case",
-            options=tuple(views_by_case_id),
-            format_func=lambda case_id: _case_label(views_by_case_id[case_id]),
+            options=tuple(failure_by_case_id),
+            format_func=lambda case_id: _case_label(failure_by_case_id[case_id]),
         )
         st.divider()
         st.caption("Demo boundary")
         st.write(
-            "This screen reads committed synthetic evaluation cases and the reviewed "
-            "baseline artifact. It does not run embeddings, retrieval, reranking, "
+            "This demo reads fixed synthetic cases and a reviewed baseline artifact. "
+            "The Chunking Explorer deterministically emits local chunks with "
+            "`tiktoken:cl100k_base`; it does not run embeddings, retrieval, reranking, "
             "context assembly, or answer generation."
         )
         st.caption(
-            "No customer data, raw corpus text, prompts, or generated answers are loaded."
+            "No customer data, credentials, prompts, or generated answers are loaded."
         )
 
-    view = views_by_case_id[selected_case_id]
-    _render_case(view)
+    if selected_surface == "Failure case":
+        _render_failure_case(failure_by_case_id[selected_case_id])
+    else:
+        _render_chunking_case(chunking_by_case_id[selected_case_id])
 
 
-def _render_case(view: FailureCaseView) -> None:
+def _render_failure_case(view: FailureCaseView) -> None:
     """Render one fixed case and its evidence lifecycle across four pipelines."""
 
     case = view.case
@@ -130,6 +157,187 @@ def _render_case(view: FailureCaseView) -> None:
         )
 
 
+def _render_chunking_case(view: ChunkingCaseView) -> None:
+    """Render character versus sentence-aware token chunking for one synthetic case."""
+
+    case = view.case
+    st.subheader(f"{case.case_id.replace('_', ' ').title()} · Chunking Autopsy")
+    st.caption(
+        "This is a deterministic local chunking comparison. It is not a retrieval, "
+        "reranking, context-packing, or answer-generation result."
+    )
+
+    st.markdown("### Question")
+    st.info(case.query)
+
+    st.markdown("### Gold evidence under inspection")
+    st.code(case.gold_evidence_text, language=None)
+    st.caption(
+        f"Synthetic source span: characters {view.gold_evidence_start}–"
+        f"{view.gold_evidence_end} of {view.source_char_count}"
+    )
+
+    metric_columns = st.columns(4)
+    _render_chunking_metric(
+        metric_columns[0],
+        label="Character chunks",
+        value=str(view.character_chunking.report.chunk_count),
+        detail=f"{view.character_chunking.configured_limit} characters",
+    )
+    _render_chunking_metric(
+        metric_columns[1],
+        label="Character evidence",
+        value=_preservation_label(view.character_chunking.report.gold_evidence_preserved),
+        detail=_split_detail(view.character_chunking.report.gold_evidence_split),
+    )
+    _render_chunking_metric(
+        metric_columns[2],
+        label="Sentence-aware chunks",
+        value=str(view.sentence_aware_token_chunking.report.chunk_count),
+        detail=f"{view.sentence_aware_token_chunking.configured_limit} tokens",
+    )
+    _render_chunking_metric(
+        metric_columns[3],
+        label="Sentence-aware evidence",
+        value=_preservation_label(
+            view.sentence_aware_token_chunking.report.gold_evidence_preserved
+        ),
+        detail=_split_detail(
+            view.sentence_aware_token_chunking.report.gold_evidence_split
+        ),
+    )
+
+    st.markdown("### Standard local configuration")
+    st.caption(
+        "These results use the benchmark-aligned local settings: 700 character windows and "
+        "96 sentence-aware tokens. They report the actual outcome for this case and are not "
+        "a deliberately forced failure fixture."
+    )
+    character_column, token_column = st.columns(2)
+    with character_column:
+        _render_chunking_strategy(
+            title="Standard character configuration",
+            strategy_view=view.character_chunking,
+            gold_start=view.gold_evidence_start,
+            gold_end=view.gold_evidence_end,
+        )
+    with token_column:
+        _render_chunking_strategy(
+            title="Standard sentence-aware token configuration",
+            strategy_view=view.sentence_aware_token_chunking,
+            gold_start=view.gold_evidence_start,
+            gold_end=view.gold_evidence_end,
+        )
+
+    if view.controlled_boundary_probe is not None:
+        _render_controlled_boundary_probe(
+            probe=view.controlled_boundary_probe,
+            gold_start=view.gold_evidence_start,
+            gold_end=view.gold_evidence_end,
+        )
+
+    with st.expander("How to read this screen", expanded=False):
+        st.markdown(
+            "- **Standard configuration:** reports what the benchmark-aligned local chunk settings actually do.\n"
+            "- **Controlled boundary probe:** a separate diagnostic fixture that intentionally ends a "
+            "character window inside the known clause; it is not a four-pipeline benchmark metric.\n"
+            "- **Preserved:** one emitted chunk fully contains the gold evidence span.\n"
+            "- **Split:** the gold span overlaps two or more chunks but no single chunk "
+            "contains it completely.\n"
+            "- **Boundary quality:** character windows cut at fixed offsets; sentence-aware "
+            "chunks preserve sentence, table-row, or log-event units when they fit the token budget.\n"
+            "- **Token count:** measured with `tiktoken:cl100k_base` on final emitted chunk text."
+        )
+
+
+def _render_controlled_boundary_probe(
+    *,
+    probe: ControlledBoundaryProbeView,
+    gold_start: int,
+    gold_end: int,
+) -> None:
+    """Render the existing controlled boundary diagnostic without calling it benchmark evidence."""
+
+    st.divider()
+    st.markdown("### Controlled boundary probe")
+    st.warning(
+        "Separate diagnostic fixture: the character window is deliberately positioned inside "
+        "the known gold clause. This isolates boundary damage; it is not the standard 700-character "
+        "benchmark configuration and does not change any benchmark metric."
+    )
+    st.caption(
+        f"Controlled character window: {probe.character_window_characters} characters · "
+        f"Sentence-aware repair budget: {probe.sentence_aware_max_tokens} tokens"
+    )
+    character_column, token_column = st.columns(2)
+    with character_column:
+        _render_chunking_strategy(
+            title="Controlled character boundary",
+            strategy_view=probe.character_chunking,
+            gold_start=gold_start,
+            gold_end=gold_end,
+        )
+    with token_column:
+        _render_chunking_strategy(
+            title="Controlled sentence-aware repair",
+            strategy_view=probe.sentence_aware_token_chunking,
+            gold_start=gold_start,
+            gold_end=gold_end,
+        )
+
+
+def _render_chunking_metric(
+    container: object,
+    *,
+    label: str,
+    value: str,
+    detail: str,
+) -> None:
+    """Render a compact chunking metric without returning UI state."""
+
+    container.metric(label, value)
+    container.caption(detail)
+
+
+def _render_chunking_strategy(
+    *,
+    title: str,
+    strategy_view: ChunkingStrategyView,
+    gold_start: int,
+    gold_end: int,
+) -> None:
+    """Render one strategy report and the emitted synthetic chunks."""
+
+    report = strategy_view.report
+    st.markdown(f"#### {title}")
+    if report.gold_evidence_preserved:
+        st.success("Gold evidence is preserved in one emitted chunk.")
+    elif report.gold_evidence_split:
+        st.warning("Gold evidence is split across emitted chunks.")
+    else:
+        st.warning("Gold evidence is not preserved by this emitted chunk set.")
+
+    st.caption(
+        f"Tokenizer: `{report.tokenizer_name}` · "
+        f"Boundary quality: `{report.boundary_quality.value}` · "
+        f"Average chunk size: {report.avg_token_count} tokens · "
+        f"Maximum: {report.max_token_count} tokens"
+    )
+
+    for chunk in report.chunks:
+        relation = _gold_relation(
+            chunk=chunk,
+            gold_start=gold_start,
+            gold_end=gold_end,
+        )
+        label = (
+            f"Chunk {chunk.chunk_index + 1} · {chunk.token_count} tokens · "
+            f"source chars {chunk.source_char_start}–{chunk.source_char_end} · {relation}"
+        )
+        with st.expander(label, expanded=relation != "no gold evidence"):
+            st.code(chunk.text, language=None)
+
+
 def _render_baseline_status(status: PipelineEvidenceStatus) -> None:
     """Render the baseline state with a clear no-claim boundary."""
 
@@ -166,6 +374,28 @@ def _status_row(status: PipelineEvidenceStatus) -> dict[str, object]:
             else "—"
         ),
     }
+
+
+def _gold_relation(*, chunk: TextChunk, gold_start: int, gold_end: int) -> str:
+    """Classify a chunk's relation to one exact gold-evidence source span."""
+
+    if chunk.source_char_start <= gold_start and chunk.source_char_end >= gold_end:
+        return "contains complete gold evidence"
+    if chunk.source_char_start < gold_end and chunk.source_char_end > gold_start:
+        return "overlaps gold evidence"
+    return "no gold evidence"
+
+
+def _preservation_label(is_preserved: bool) -> str:
+    """Render a concise yes/no evidence-preservation label."""
+
+    return "Preserved" if is_preserved else "Not preserved"
+
+
+def _split_detail(is_split: bool) -> str:
+    """Render a concise split-state label."""
+
+    return "Split across chunks" if is_split else "Not split"
 
 
 def _case_label(view: FailureCaseView) -> str:
