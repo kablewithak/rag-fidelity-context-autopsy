@@ -16,9 +16,9 @@ The lab compares a deliberately weak baseline with stronger interventions and pr
 
 ## Current milestone
 
-**Phase 9B — Read-only Streamlit Chunking Explorer**
+**Phase 9C — Read-only Streamlit Retrieval Explorer**
 
-The repository now has three layers:
+The repository now has four layers:
 
 1. A reviewed, committed four-pipeline synthetic benchmark:
    ```text
@@ -27,6 +27,7 @@ The repository now has three layers:
    ```
 2. A read-only Failure Case Explorer for inspecting the reviewed evidence lifecycle across all four pipelines.
 3. A read-only Chunking Explorer for comparing character boundaries with sentence-aware token chunking over the same fixed synthetic case.
+4. A read-only Retrieval Explorer for inspecting committed candidate presence, first-stage rank, reranked rank, final evidence selection, and bounded trace references.
 
 The benchmark artifact captures bounded comparison evidence and exact provenance:
 
@@ -35,7 +36,7 @@ The benchmark artifact captures bounded comparison evidence and exact provenance
 - chunking, retrieval, hybrid fusion, reranking, and context settings;
 - Recall@5, MRR@10, evidence-inclusion rate, dropped-evidence rate, failure counts, and per-case trace references.
 
-The artifact stores IDs, hashes, ranks, counts, and metrics only. It does not serialize raw documents, chunks, prompts, rendered context, or generated answers.
+The artifact stores IDs, hashes, ranks, counts, and metrics only. It does not serialize raw documents, chunks, prompts, rendered context, candidate scores, or generated answers.
 
 **Status:** production-shaped local evaluation harness over synthetic data with locally runnable read-only demo surfaces. It is not a production deployment, customer-data evaluation, grounded-answer guarantee, or production-readiness claim.
 
@@ -66,7 +67,7 @@ docs/reports/four_pipeline_baseline_v1.md
 ```text
 rag-fidelity-context-autopsy/
 ├── app/
-│   └── streamlit_app.py           # Read-only Failure Case and Chunking Explorers
+│   └── streamlit_app.py           # Read-only Failure, Chunking, and Retrieval Explorers
 ├── artifacts/
 │   └── comparisons/                # Reviewed bounded benchmark artifacts
 ├── data/
@@ -79,6 +80,7 @@ rag-fidelity-context-autopsy/
 ├── rag_lab/
 │   ├── case_explorer.py            # Typed read-only evidence-lifecycle views
 │   ├── chunking_explorer.py        # Typed character versus token chunking views
+│   ├── retrieval_explorer.py       # Typed reviewed candidate and rank views
 │   ├── chunkers.py                 # Character and sentence-aware token chunking
 │   ├── retrievers.py               # BM25, dense, and hybrid retrieval traces
 │   ├── rerankers.py                # Cross-encoder reranking traces
@@ -115,10 +117,11 @@ python -m pytest
 
 ## Run the read-only Streamlit explorers
 
-The app contains two local-only, read-only surfaces:
+The app contains three local-only, read-only surfaces:
 
 - **Failure case:** inspect a fixed case's reviewed evidence lifecycle across all four pipelines.
-- **Chunking:** inspect the actual standard character and sentence-aware outcomes, then open the separate controlled boundary probe for `token_boundary_export_017` to see a deliberately positioned character cut split the same gold clause.
+- **Chunking:** inspect actual standard character and sentence-aware outcomes, then open the separate controlled boundary probe for `token_boundary_export_017` to see a deliberately positioned character cut split the same gold clause.
+- **Retrieval:** inspect the reviewed top-8 candidate boundary, first-stage rank, reranked rank where available, final evidence selection, loss stage, and bounded trace IDs.
 
 ```powershell
 python -m streamlit run .\app\streamlit_app.py
@@ -127,9 +130,10 @@ python -m streamlit run .\app\streamlit_app.py
 Open the local URL printed by Streamlit. Select a fixed diagnostic case in the sidebar, then change the surface:
 
 - **Failure case** shows query, gold evidence, expected answer, diagnostic note, baseline loss stage, failure labels, and per-pipeline ranks.
-- **Chunking** runs deterministic local chunking with `tiktoken:cl100k_base` over the synthetic source document. It shows emitted chunks, measured token counts, source-character spans, and whether one emitted chunk contains the complete gold evidence. The `token_boundary_export_017` case also exposes a clearly labelled controlled boundary probe, which is separate from standard benchmark execution and intentionally places a character boundary inside the known clause.
+- **Chunking** deterministically emits local chunks with `tiktoken:cl100k_base` over the synthetic source document. It shows emitted chunks, measured token counts, source-character spans, and whether one emitted chunk contains the complete gold evidence. The `token_boundary_export_017` case also exposes a clearly labelled controlled boundary probe, which is separate from standard benchmark execution and intentionally places a character boundary inside the known clause.
+- **Retrieval** reads the reviewed comparison artifact without rerunning models. It distinguishes evidence unavailable after chunking from a genuine candidate miss, shows candidate-pool depth separately from the Recall@5 reporting cutoff, displays first-stage and reranked ranks, and exposes bounded trace IDs only.
 
-The app does not run embeddings, retrieval, reranking, context assembly, or answer generation. It does not write benchmark artifacts or change the fixed corpus.
+The app does not rerun embeddings, retrieval, reranking, context assembly, or answer generation. It does not write benchmark artifacts or change the fixed corpus.
 
 ## Reproduce and verify the baseline
 
@@ -161,7 +165,7 @@ python .\scripts\run_four_pipeline_comparison.py `
 
 The corpus and evaluation cases are synthetic. Do not add real customer transcripts, customer support tickets, credentials, or personally identifiable information to this repository.
 
-The Chunking Explorer renders emitted chunks from the synthetic corpus only. Keep rich traces local unless an approved review workflow requires more data. The committed comparison artifacts retain identifiers, hashes, ranks, counts, metrics, and failure labels rather than raw chunks, source documents, prompts, or generated answers.
+The Chunking Explorer renders emitted chunks from the synthetic corpus only. The Retrieval Explorer displays only reviewed ranks, loss labels, and bounded trace IDs. Keep rich traces local unless an approved review workflow requires more data. The committed comparison artifacts retain identifiers, hashes, ranks, counts, metrics, and failure labels rather than raw chunks, source documents, prompts, candidate scores, rendered context, or generated answers.
 
 ## Planned build order
 
@@ -173,9 +177,10 @@ The Chunking Explorer renders emitted chunks from the synthetic corpus only. Kee
 6. Deterministic repair recommendation and executive report surfaces — **complete**
 7. Streamlit Failure Case Explorer — **complete**
 8. Streamlit Chunking Explorer — **complete** (standard view plus separate controlled boundary probe)
-9. Streamlit retrieval and context-autopsy explorers
-10. Streamlit evaluation report and guided demo flow
-11. Hugging Face Spaces CPU deployment
+9. Streamlit Retrieval Explorer — **complete**
+10. Streamlit context-autopsy explorer
+11. Streamlit evaluation report and guided demo flow
+12. Hugging Face Spaces CPU deployment
 
 ## Non-claims
 
