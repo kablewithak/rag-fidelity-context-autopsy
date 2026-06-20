@@ -16,25 +16,27 @@ The lab compares a deliberately weak baseline with stronger interventions and pr
 
 ## Current milestone
 
-**Phase 7C — Versioned baseline artifact and regression gate**
+**Phase 9A — Read-only Streamlit Failure Case Explorer**
 
-The repository now contains a reviewed, committed four-pipeline synthetic benchmark:
+The repository now has two layers:
 
-```text
-artifacts/comparisons/four_pipeline_baseline_v1.json
-docs/reports/four_pipeline_baseline_v1.md
-```
+1. A reviewed, committed four-pipeline synthetic benchmark:
+   ```text
+   artifacts/comparisons/four_pipeline_baseline_v1.json
+   docs/reports/four_pipeline_baseline_v1.md
+   ```
+2. A read-only Streamlit explorer that lets an operator select a fixed diagnostic case and inspect its evidence lifecycle across all four pipelines.
 
-The artifact captures a bounded comparison report plus the exact benchmark provenance:
+The benchmark artifact captures bounded comparison evidence and exact provenance:
 
 - tokenizer, embedding model, reranker model, and device;
 - corpus and evaluation-case manifest hashes;
 - chunking, retrieval, hybrid fusion, reranking, and context settings;
 - Recall@5, MRR@10, evidence-inclusion rate, dropped-evidence rate, failure counts, and per-case trace references.
 
-The report stores IDs, hashes, ranks, counts, and metrics only. It does not serialize raw documents, chunks, prompts, rendered context, or generated answers.
+The artifact stores IDs, hashes, ranks, counts, and metrics only. It does not serialize raw documents, chunks, prompts, rendered context, or generated answers.
 
-**Status:** production-shaped local evaluation harness over synthetic data. It is not a production deployment, customer-data evaluation, grounded-answer guarantee, or production-readiness claim.
+**Status:** production-shaped local evaluation harness over synthetic data with a locally runnable read-only demo surface. It is not a production deployment, customer-data evaluation, grounded-answer guarantee, or production-readiness claim.
 
 ## Four fixed pipelines
 
@@ -52,7 +54,7 @@ The report stores IDs, hashes, ranks, counts, and metrics only. It does not seri
 | Token + hybrid | 100.0% | 0.870 | 100.0% |
 | Token + hybrid + rerank + budget | 100.0% | 0.972 | 100.0% |
 
-Read the exact evidence, scope, and non-claims in:
+Read the exact evidence, deterministic repair sequence, scope, and non-claims in:
 
 ```text
 docs/reports/four_pipeline_baseline_v1.md
@@ -62,27 +64,31 @@ docs/reports/four_pipeline_baseline_v1.md
 
 ```text
 rag-fidelity-context-autopsy/
+├── app/
+│   └── streamlit_app.py           # Read-only Failure Case Explorer
 ├── artifacts/
-│   └── comparisons/            # Reviewed bounded benchmark artifacts
+│   └── comparisons/                # Reviewed bounded benchmark artifacts
 ├── data/
-│   ├── corpus/                 # Synthetic source documents only
-│   └── eval_cases.jsonl        # Fixed diagnostic cases
+│   ├── corpus/                     # Synthetic source documents only
+│   └── eval_cases.jsonl            # Fixed diagnostic cases
 ├── docs/
-│   ├── reports/                # Generated executive readouts committed for review
-│   └── ADR-006...ADR-008       # Comparison, runner, and baseline decisions
-├── outputs/                    # Git-ignored fresh local comparison outputs
+│   ├── reports/                    # Generated executive readouts committed for review
+│   └── ADR-006...ADR-008           # Comparison, runner, and baseline decisions
+├── outputs/                        # Git-ignored fresh local comparison outputs
 ├── rag_lab/
-│   ├── chunkers.py             # Character and sentence-aware token chunking
-│   ├── retrievers.py           # BM25, dense, and hybrid retrieval traces
-│   ├── rerankers.py            # Cross-encoder reranking traces
-│   ├── context_assembly.py     # Measured rendered-context packing
-│   ├── comparison.py           # Fixed comparison contracts and metric reducer
-│   ├── comparison_runner.py    # Real four-pipeline execution harness
-│   ├── comparison_artifacts.py # Artifact, readout, and regression-gate contracts
-│   └── schemas.py              # Pydantic boundary contracts
+│   ├── case_explorer.py            # Typed read-only Streamlit view models
+│   ├── chunkers.py                 # Character and sentence-aware token chunking
+│   ├── retrievers.py               # BM25, dense, and hybrid retrieval traces
+│   ├── rerankers.py                # Cross-encoder reranking traces
+│   ├── context_assembly.py         # Measured rendered-context packing
+│   ├── comparison.py               # Fixed comparison contracts and metric reducer
+│   ├── comparison_runner.py        # Real four-pipeline execution harness
+│   ├── comparison_artifacts.py     # Artifact, readout, and regression-gate contracts
+│   └── schemas.py                  # Pydantic boundary contracts
 ├── scripts/
 │   ├── run_four_pipeline_comparison.py
-│   └── run_comparison_baseline.py
+│   ├── run_comparison_baseline.py
+│   └── run_repair_recommendations.py
 └── tests/
 ```
 
@@ -94,7 +100,7 @@ This project supports Python 3.11+ and is currently validated on Python 3.12.
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev,dense,tiktoken]"
+python -m pip install -e ".[dev,dense,tiktoken,demo]"
 ```
 
 The real comparison commands require the selected Sentence Transformers models and `tiktoken` encoding to be available locally. The runtime does not silently substitute another model or tokenizer.
@@ -105,13 +111,27 @@ The real comparison commands require the selected Sentence Transformers models a
 python -m pytest
 ```
 
+## Run the read-only Failure Case Explorer
+
+The explorer loads the fixed synthetic cases and reviewed baseline artifact. It does not rerun models, modify benchmark files, or make answer-grounding claims.
+
+```powershell
+python -m streamlit run .pp\streamlit_app.py
+```
+
+Open the local URL printed by Streamlit. Select a case in the sidebar to inspect:
+
+- query, gold evidence, expected answer, and diagnostic purpose;
+- baseline loss stage and failure labels;
+- retrieved and reranked ranks across all four fixed pipelines;
+- whether gold evidence reached final evidence selection.
+
 ## Reproduce and verify the baseline
 
 ```powershell
-python .\scripts\run_comparison_baseline.py `
+python .\scriptsun_comparison_baseline.py `
     --tokenizer tiktoken `
-    --tiktoken-encoding cl100k_base `
-    --verify
+    --tiktoken-encoding cl100k_base
 ```
 
 The command:
@@ -126,7 +146,7 @@ An intentional benchmark update requires both `--update-baseline` and `--confirm
 ## Run the raw comparison only
 
 ```powershell
-python .\scripts\run_four_pipeline_comparison.py `
+python .\scriptsun_four_pipeline_comparison.py `
     --tokenizer tiktoken `
     --tiktoken-encoding cl100k_base `
     --retrieval-metric-k 5
@@ -145,8 +165,11 @@ Keep rich traces local unless an approved review workflow requires more data. Th
 3. BM25, dense retrieval, hybrid fusion, and reranking — **complete**
 4. Token-budget-aware context autopsy and lost-evidence reports — **complete**
 5. Comparison contracts, execution runner, and versioned benchmark — **complete**
-6. Streamlit demonstration surface
-7. Hugging Face Spaces CPU deployment
+6. Deterministic repair recommendation and executive report surfaces — **complete**
+7. Streamlit Failure Case Explorer — **complete**
+8. Streamlit chunking, retrieval, and context-autopsy explorers
+9. Streamlit evaluation report and guided demo flow
+10. Hugging Face Spaces CPU deployment
 
 ## Non-claims
 
