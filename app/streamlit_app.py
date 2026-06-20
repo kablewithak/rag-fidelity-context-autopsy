@@ -17,6 +17,12 @@ from rag_lab.chunking_explorer import (
     ControlledBoundaryProbeView,
     load_chunking_case_views,
 )
+from rag_lab.retrieval_explorer import (
+    CandidateSetState,
+    RetrievalCaseView,
+    RetrievalPipelineView,
+    load_retrieval_case_views,
+)
 from rag_lab.schemas import TextChunk
 
 
@@ -45,8 +51,15 @@ def load_chunking_views() -> tuple[ChunkingCaseView, ...]:
     return load_chunking_case_views(project_root=PROJECT_ROOT)
 
 
+@st.cache_data(show_spinner=False)
+def load_retrieval_views() -> tuple[RetrievalCaseView, ...]:
+    """Cache reviewed ranks and bounded trace references without rerunning retrieval."""
+
+    return load_retrieval_case_views(project_root=PROJECT_ROOT)
+
+
 def main() -> None:
-    """Render read-only evidence-lifecycle and chunking-autopsy surfaces."""
+    """Render read-only evidence, chunking, and retrieval-autopsy surfaces."""
 
     st.title("RAG Fidelity & Context Autopsy")
     st.caption(
@@ -56,6 +69,7 @@ def main() -> None:
     try:
         failure_views = load_failure_views()
         chunking_views = load_chunking_views()
+        retrieval_views = load_retrieval_views()
     except (OSError, RuntimeError, ValueError) as error:
         st.error("The explorer could not load its fixed synthetic benchmark assets.")
         st.exception(error)
@@ -63,15 +77,19 @@ def main() -> None:
 
     failure_by_case_id = {view.case.case_id: view for view in failure_views}
     chunking_by_case_id = {view.case.case_id: view for view in chunking_views}
-    if set(failure_by_case_id) != set(chunking_by_case_id):
-        st.error("The failure and chunking explorer case coverage does not match.")
+    retrieval_by_case_id = {view.case.case_id: view for view in retrieval_views}
+    if (
+        set(failure_by_case_id) != set(chunking_by_case_id)
+        or set(failure_by_case_id) != set(retrieval_by_case_id)
+    ):
+        st.error("The explorer surfaces do not cover the same fixed evaluation cases.")
         st.stop()
 
     with st.sidebar:
         st.header("Explorer")
         selected_surface = st.radio(
             "Read-only surface",
-            options=("Failure case", "Chunking"),
+            options=("Failure case", "Chunking", "Retrieval"),
             horizontal=False,
         )
         st.divider()
@@ -86,17 +104,21 @@ def main() -> None:
         st.write(
             "This demo reads fixed synthetic cases and a reviewed baseline artifact. "
             "The Chunking Explorer deterministically emits local chunks with "
-            "`tiktoken:cl100k_base`; it does not run embeddings, retrieval, reranking, "
-            "context assembly, or answer generation."
+            "`tiktoken:cl100k_base`. The Retrieval Explorer reads committed candidate "
+            "presence, ranks, loss labels, and trace IDs. It does not run embeddings, "
+            "retrieval, reranking, context assembly, or answer generation."
         )
         st.caption(
-            "No customer data, credentials, prompts, or generated answers are loaded."
+            "No customer data, credentials, prompts, raw retrieval candidates, or "
+            "generated answers are loaded."
         )
 
     if selected_surface == "Failure case":
         _render_failure_case(failure_by_case_id[selected_case_id])
-    else:
+    elif selected_surface == "Chunking":
         _render_chunking_case(chunking_by_case_id[selected_case_id])
+    else:
+        _render_retrieval_case(retrieval_by_case_id[selected_case_id])
 
 
 def _render_failure_case(view: FailureCaseView) -> None:
@@ -250,6 +272,89 @@ def _render_chunking_case(view: ChunkingCaseView) -> None:
         )
 
 
+def _render_retrieval_case(view: RetrievalCaseView) -> None:
+    """Render reviewed candidate availability and ranks without rerunning retrieval."""
+
+    case = view.case
+    baseline = view.baseline_view
+
+    st.subheader(f"{case.case_id.replace('_', ' ').title()} · Retrieval Autopsy")
+    st.caption(
+        "This surface reads reviewed candidate presence and rank fields from the committed "
+        "baseline artifact. It does not perform a fresh retrieval or reranking run."
+    )
+
+    st.markdown("### Question")
+    st.info(case.query)
+    st.caption(case.diagnostic_note)
+
+    metric_columns = st.columns(4)
+    _render_retrieval_metric(
+        metric_columns[0],
+        label="Baseline candidate state",
+        value=_candidate_state_label(baseline.candidate_set_state),
+        detail=f"{baseline.retrieval_method.value} retrieval",
+    )
+    _render_retrieval_metric(
+        metric_columns[1],
+        label="Candidate pool",
+        value=f"Top {baseline.candidate_depth}",
+        detail=f"Recall reported at {view.retrieval_metric_k}",
+    )
+    _render_retrieval_metric(
+        metric_columns[2],
+        label="Baseline first-stage rank",
+        value=_rank_label(baseline.retrieved_gold_rank),
+        detail="Gold evidence rank before reranking",
+    )
+    _render_retrieval_metric(
+        metric_columns[3],
+        label="Baseline final evidence",
+        value="Included" if baseline.gold_evidence_included else "Not included",
+        detail=_loss_detail(baseline),
+    )
+
+    st.markdown("### Baseline diagnosis")
+    _render_retrieval_baseline_diagnosis(baseline)
+
+    st.markdown("### Reviewed candidate and rank path")
+    st.dataframe(
+        [_retrieval_row(pipeline) for pipeline in view.pipeline_views],
+        use_container_width=True,
+        hide_index=True,
+    )
+    st.caption(
+        "Candidate presence is measured against each pipeline's retained top-8 candidate pool. "
+        f"Recall@{view.retrieval_metric_k} remains a separate reported metric cutoff."
+    )
+
+    with st.expander("Bounded trace references", expanded=False):
+        st.caption(
+            "The reviewed artifact retains trace IDs, not raw candidate chunks, similarity scores, "
+            "source documents, prompts, or rendered context."
+        )
+        st.dataframe(
+            [_trace_reference_row(pipeline) for pipeline in view.pipeline_views],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    with st.expander("How to read this screen", expanded=False):
+        st.markdown(
+            "- **Unavailable after chunking:** the complete evidence span was not a usable chunk, "
+            "so this is not a first-stage retrieval miss.\n"
+            "- **Missing from candidate set:** the complete evidence was usable but absent from the "
+            "pipeline's retained candidate pool.\n"
+            "- **Present:** the evidence entered the candidate pool; its first-stage rank is shown.\n"
+            "- **Reranked rank:** exists only for the cross-encoder reranking pipeline and governs "
+            "the final rank used for context selection.\n"
+            "- **Final evidence:** records whether the gold evidence reached the final "
+            "evidence-selection boundary. A later loss stage can still be ranking or context assembly.\n"
+            "- **No candidate text or score:** the committed artifact intentionally excludes raw "
+            "retrieval payloads and model scores."
+        )
+
+
 def _render_controlled_boundary_probe(
     *,
     probe: ControlledBoundaryProbeView,
@@ -294,6 +399,19 @@ def _render_chunking_metric(
     detail: str,
 ) -> None:
     """Render a compact chunking metric without returning UI state."""
+
+    container.metric(label, value)
+    container.caption(detail)
+
+
+def _render_retrieval_metric(
+    container: object,
+    *,
+    label: str,
+    value: str,
+    detail: str,
+) -> None:
+    """Render a compact retrieval metric without returning UI state."""
 
     container.metric(label, value)
     container.caption(detail)
@@ -358,6 +476,39 @@ def _render_baseline_status(status: PipelineEvidenceStatus) -> None:
         st.caption(f"Rank available before loss: {status.rank_used_for_context}")
 
 
+def _render_retrieval_baseline_diagnosis(view: RetrievalPipelineView) -> None:
+    """Render a stage-accurate baseline explanation from the reviewed outcome."""
+
+    if view.candidate_set_state is CandidateSetState.UNAVAILABLE_AFTER_CHUNKING:
+        st.warning(
+            "The complete gold evidence was unavailable to first-stage retrieval because "
+            "chunking failed before a usable evidence unit reached the candidate boundary."
+        )
+    elif view.candidate_set_state is CandidateSetState.MISSING_FROM_CANDIDATE_SET:
+        st.warning(
+            f"The complete gold evidence was absent from the reviewed top-{view.candidate_depth} "
+            "first-stage candidate pool."
+        )
+    elif view.gold_evidence_included:
+        st.success(
+            f"The gold evidence entered the candidate set at rank {view.retrieved_gold_rank} "
+            "and reached the final evidence-selection boundary."
+        )
+    else:
+        rank = _rank_label(view.rank_used_for_context)
+        stage = view.loss_stage.value.replace("_", " ") if view.loss_stage else "unknown stage"
+        st.warning(
+            f"The gold evidence entered the candidate set at rank {rank}, then failed at "
+            f"{stage} before final evidence selection."
+        )
+
+    if view.failure_labels:
+        st.caption(
+            "Failure labels: "
+            + ", ".join(label.value.replace("_", " ") for label in view.failure_labels)
+        )
+
+
 def _status_row(status: PipelineEvidenceStatus) -> dict[str, object]:
     """Convert one typed status into a compact table row."""
 
@@ -373,6 +524,33 @@ def _status_row(status: PipelineEvidenceStatus) -> dict[str, object]:
             if status.failure_labels
             else "—"
         ),
+    }
+
+
+def _retrieval_row(view: RetrievalPipelineView) -> dict[str, object]:
+    """Convert one typed retrieval view into a compact comparison row."""
+
+    return {
+        "Pipeline": view.pipeline_id.value,
+        "Chunking": view.chunking_strategy.value,
+        "Retrieval": view.retrieval_method.value,
+        "Reranker": "Yes" if view.reranker_enabled else "No",
+        "Candidate pool": f"Top {view.candidate_depth}",
+        "Candidate state": _candidate_state_label(view.candidate_set_state),
+        "First-stage rank": _rank_label(view.retrieved_gold_rank),
+        "Reranked rank": _rank_label(view.reranked_gold_rank),
+        "Rank used for context": _rank_label(view.rank_used_for_context),
+        "Final evidence": "Included" if view.gold_evidence_included else "Not included",
+        "Loss stage": view.loss_stage.value if view.loss_stage else "—",
+    }
+
+
+def _trace_reference_row(view: RetrievalPipelineView) -> dict[str, str]:
+    """Render bounded trace IDs without exposing the underlying trace payload."""
+
+    return {
+        "Pipeline": view.pipeline_id.value,
+        "Trace IDs": "\n".join(view.trace_ids),
     }
 
 
@@ -396,6 +574,32 @@ def _split_detail(is_split: bool) -> str:
     """Render a concise split-state label."""
 
     return "Split across chunks" if is_split else "Not split"
+
+
+def _candidate_state_label(state: CandidateSetState) -> str:
+    """Render a concise candidate-state label."""
+
+    if state is CandidateSetState.PRESENT:
+        return "Present"
+    if state is CandidateSetState.MISSING_FROM_CANDIDATE_SET:
+        return "Missing"
+    return "Unavailable after chunking"
+
+
+def _rank_label(rank: int | None) -> str:
+    """Render a rank without representing absence as rank zero."""
+
+    return f"#{rank}" if rank is not None else "—"
+
+
+def _loss_detail(view: RetrievalPipelineView) -> str:
+    """Render final-boundary detail without overclaiming generated-answer behavior."""
+
+    if view.gold_evidence_included:
+        return f"Rank used: {_rank_label(view.rank_used_for_context)}"
+    if view.loss_stage is None:
+        return "No reviewed loss stage"
+    return f"Lost at {view.loss_stage.value.replace('_', ' ')}"
 
 
 def _case_label(view: FailureCaseView) -> str:
