@@ -50,6 +50,12 @@ def test_committed_readout_is_the_deterministic_render_of_the_artifact() -> None
 
     assert committed_readout == render_executive_markdown(artifact=artifact)
     assert "Recall@5" in committed_readout
+    assert "## Deterministic repair sequence" in committed_readout
+    assert "`sentence_aware_token_chunking`" in committed_readout
+    assert "`hybrid_retrieval`" in committed_readout
+    assert "`cross_encoder_reranking`" in committed_readout
+    assert "--tiktoken-encoding cl100k_base" in committed_readout
+    assert "--verify" not in committed_readout
     assert "model-version stability" in committed_readout
 
 

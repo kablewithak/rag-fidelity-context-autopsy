@@ -21,14 +21,15 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from rag_lab.comparison import (
-    DEFAULT_PIPELINE_DEFINITIONS,
     CasePipelineOutcome,
     PipelineComparisonReport,
-    PipelineDefinition,
     PipelineId,
-    build_comparison_report,
 )
 from rag_lab.comparison_runner import ComparisonExecutionConfig
+from rag_lab.repair_recommendations import (
+    RepairRecommendationReport,
+    build_repair_recommendation_report,
+)
 from rag_lab.schemas import CorpusDocument, EvaluationCase
 
 
@@ -225,6 +226,7 @@ def render_executive_markdown(*, artifact: ComparisonBaselineArtifact) -> str:
     token_dense = metrics[PipelineId.TOKEN_DENSE_NAIVE]
     hybrid = metrics[PipelineId.TOKEN_HYBRID_NAIVE]
     full = metrics[PipelineId.TOKEN_HYBRID_RERANK_BUDGETED]
+    repair_report = build_repair_recommendation_report(comparison_report=report)
 
     baseline_chunking_losses = baseline.loss_stage_counts.get("chunking", 0)
     baseline_retrieval_losses = baseline.loss_stage_counts.get("retrieval", 0)
@@ -306,6 +308,11 @@ def render_executive_markdown(*, artifact: ComparisonBaselineArtifact) -> str:
                 f"{baseline_retrieval_losses} retrieval-stage loss(es), and {baseline_ranking_losses} ranking-stage loss(es)."
             ),
             "",
+        ]
+    )
+    lines.extend(_render_repair_recommendations_section(report=repair_report))
+    lines.extend(
+        [
             "## Regression gate",
             "",
             "A fresh run must preserve the fixed provenance, pipeline definitions, case set, Recall cutoff, and all baseline-included evidence. It may improve metrics, but it fails when Recall@5, MRR@10, or evidence inclusion falls below the reviewed baseline, or when dropped-evidence rate increases.",
@@ -313,8 +320,7 @@ def render_executive_markdown(*, artifact: ComparisonBaselineArtifact) -> str:
             "```powershell",
             "python .\\scripts\\run_comparison_baseline.py `",
             "    --tokenizer tiktoken `",
-            "    --tiktoken-encoding cl100k_base `",
-            "    --verify",
+            "    --tiktoken-encoding cl100k_base",
             "```",
             "",
             "## Non-claims",
@@ -324,6 +330,52 @@ def render_executive_markdown(*, artifact: ComparisonBaselineArtifact) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def _render_repair_recommendations_section(
+    *, report: RepairRecommendationReport
+) -> list[str]:
+    """Render a concise evidence-backed repair section inside the executive readout."""
+
+    lines = [
+        "## Deterministic repair sequence",
+        "",
+        "This sequence is derived only from observed baseline failure labels and fixed-pipeline comparison evidence. It does not add speculative repairs.",
+        "",
+    ]
+    if not report.recommendations:
+        lines.extend(
+            [
+                "No repair recommendation is emitted because the selected baseline has no observed evidence-loss labels.",
+                "",
+            ]
+        )
+        return lines
+
+    for position, recommendation in enumerate(report.recommendations, start=1):
+        observed_labels = ", ".join(
+            f"`{label.value}`" for label in recommendation.observed_failure_labels
+        )
+        metrics_to_watch = ", ".join(recommendation.metrics_to_watch)
+        supporting_pipeline = (
+            f"`{recommendation.supporting_pipeline_id.value}`"
+            if recommendation.supporting_pipeline_id is not None
+            else "a future generation-evaluation layer"
+        )
+        lines.extend(
+            [
+                f"### {position}. {recommendation.priority.value.title()} — `{recommendation.recommendation_id.value}`",
+                "",
+                f"- **Observed labels:** {observed_labels}",
+                f"- **Repair:** {recommendation.recommendation}",
+                f"- **Expected signal:** {recommendation.expected_signal}",
+                f"- **Metrics to watch:** {metrics_to_watch}",
+                f"- **Trade-off:** {recommendation.trade_off}",
+                f"- **Supporting comparison:** {supporting_pipeline}",
+                "",
+            ]
+        )
+    return lines
 
 
 def write_executive_markdown(*, artifact: ComparisonBaselineArtifact, path: Path) -> None:
@@ -507,8 +559,7 @@ def _assert_case_level_guards(
             )
             if expected_top_k and not actual_top_k:
                 messages.append(
-                    f"{key[0].value}/{key[1]} fell outside Recall@{candidate.retrieval_metric_k}"
-                )
+                    f"{key[0].value}/{key[1]} fell outside Recall@{candidate.retrieval_metric_k}")
 
 
 def _case_ids_by_pipeline(report: PipelineComparisonReport) -> dict[PipelineId, tuple[str, ...]]:
