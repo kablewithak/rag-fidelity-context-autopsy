@@ -62,7 +62,7 @@ A zero `tokenizer_count_delta` in aligned mode is healthy. It does **not** mean 
 - lost-evidence reporting only when complete gold evidence was present after reranking and died during context assembly;
 - SHA-256 text hashes and bounded report metadata instead of raw evidence in persistable autopsies.
 
-**Status:** locally validated on synthetic data. Aggregate pipeline comparison, executive markdown export, Streamlit, deployment, customer-data validation, and production monitoring are not implemented yet.
+**Status:** locally validated on synthetic data. The four-pipeline comparison contract and metric reducer are implemented; the live comparison runner, executive markdown export, Streamlit, deployment, customer-data validation, and production monitoring are not implemented yet.
 
 ## Local setup
 
@@ -143,6 +143,7 @@ rag-fidelity-context-autopsy/
 │   ├── ADR-003-context-budget-autopsy.md
 │   ├── ADR-004-tokenizer-alignment.md
 │   ├── ADR-005-diagnostic-tokenization-pressure.md
+│   ├── ADR-006-four-pipeline-comparison-harness.md
 │   └── PROJECT_SCOPE.md
 ├── outputs/                    # Git-ignored generated reports
 ├── scripts/
@@ -154,6 +155,7 @@ rag-fidelity-context-autopsy/
 │   └── run_rerank_smoke.py
 ├── rag_lab/
 │   ├── chunkers.py
+│   ├── comparison.py              # Typed four-pipeline metric reducer
 │   ├── context_assembly.py
 │   ├── corpus_loader.py
 │   ├── diagnostic_scenarios.py
@@ -166,6 +168,20 @@ rag-fidelity-context-autopsy/
 │   └── tokenizers.py
 └── tests/
 ```
+
+
+## Phase 7 comparison contract
+
+The project now contains a schema-first contract for the PRD-required ablations:
+
+```text
+char_dense_naive
+token_dense_naive
+token_hybrid_naive
+token_hybrid_rerank_budgeted
+```
+
+Its metric reducer accepts one typed outcome per pipeline and fixed evaluation case, then emits a privacy-bounded JSON-ready comparison report with Recall@k, MRR@10, evidence-inclusion rate, dropped-evidence rate, failure counts, trace references, and baseline-to-intervention deltas. It does not yet execute those four pipelines; the next Phase 7 slice will derive the outcomes from real traces.
 
 ## Data and privacy posture
 
