@@ -166,6 +166,15 @@ class TextChunk(BaseModel):
     chunk_index: int = Field(ge=0)
     text: str = Field(min_length=1, max_length=20000)
     token_count: int = Field(ge=1)
+    tokenizer_name: str = Field(
+        default="unattributed:unknown_v1",
+        min_length=3,
+        max_length=160,
+        description=(
+            "Tokenizer that produced token_count. Context assembly rejects unattributed "
+            "chunks so final budget decisions always have traceable provenance."
+        ),
+    )
     char_count: int = Field(ge=1)
     source_char_start: int = Field(ge=0)
     source_char_end: int = Field(ge=1)

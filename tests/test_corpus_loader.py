@@ -23,6 +23,7 @@ def test_load_synthetic_corpus_returns_all_manifest_documents_with_integrity_met
         "multilingual_support",
         "pricing_table",
         "support_policy",
+        "tokenization_stress_policy",
     ]
     assert all(len(document.text_sha256) == 64 for document in documents)
     assert all(document.char_count == len(document.text) for document in documents)

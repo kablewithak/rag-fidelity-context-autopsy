@@ -84,6 +84,19 @@ def test_sentence_aware_chunker_respects_token_budget_when_units_fit() -> None:
     assert all(chunk.boundary_quality is ChunkBoundaryQuality.CLEAN_SENTENCE_BOUNDARY for chunk in chunks)
 
 
+
+def test_sentence_aware_chunker_counts_inter_sentence_whitespace_in_budget() -> None:
+    """A combined span must include the separator token between sentence units."""
+
+    counter = UnicodeCodePointTokenCounter()
+    source_text = "Alpha. Beta."
+    chunker = SentenceAwareTokenChunker(token_counter=counter, max_tokens=11)
+
+    chunks = chunker.chunk(text=source_text, source_doc_id="faq")
+
+    assert [chunk.text for chunk in chunks] == ["Alpha.", "Beta."]
+    assert all(chunk.token_count <= 11 for chunk in chunks)
+
 def test_chunking_report_rejects_gold_evidence_missing_from_source_text() -> None:
     counter = UnicodeCodePointTokenCounter()
     source_text = "A policy sentence exists here."

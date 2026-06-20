@@ -35,7 +35,7 @@ def _sentence_aware_chunks() -> list[TextChunk]:
     return chunk_corpus(documents, chunker=chunker)
 
 
-def test_bm25_recovers_exact_error_code_evidence_with_a_typed_trace() -> None:
+def test_bm25_returns_error_code_evidence_within_requested_top_k_on_full_corpus() -> None:
     trace = Bm25Retriever(chunks=_sentence_aware_chunks()).retrieve(
         case=_case("code_sso_error_013"),
         top_k=5,
@@ -43,6 +43,24 @@ def test_bm25_recovers_exact_error_code_evidence_with_a_typed_trace() -> None:
 
     assert trace.retriever_name == "bm25_okapi"
     assert trace.lexical_analyzer_name == "lexical:unicode_word_lowercase_v1"
+    assert trace.gold_evidence_found is True
+    assert trace.gold_evidence_rank is not None
+    assert 1 <= trace.gold_evidence_rank <= trace.requested_top_k
+
+    gold_result = next(result for result in trace.results if result.gold_evidence_match)
+    assert gold_result.chunk.source_doc_id == "code_logs"
+
+
+def test_bm25_ranks_exact_error_code_query_first() -> None:
+    case = _case("code_sso_error_013").model_copy(
+        update={"query": "JWT_AUD_MISMATCH"}
+    )
+
+    trace = Bm25Retriever(chunks=_sentence_aware_chunks()).retrieve(
+        case=case,
+        top_k=5,
+    )
+
     assert trace.gold_evidence_found is True
     assert trace.gold_evidence_rank == 1
     assert trace.results[0].chunk.source_doc_id == "code_logs"

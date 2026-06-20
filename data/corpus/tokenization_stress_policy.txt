@@ -1,0 +1,25 @@
+Northstar Operational Recovery Handbook — Synthetic Diagnostic Corpus
+
+1. Purpose and decision record
+This handbook defines the evidence, notification, and recovery controls used when a Northstar service disruption affects a contracted customer workspace. The document deliberately repeats operational vocabulary so a retrieval or packing system must separate useful evidence from nearby but incomplete context.
+
+2. Severity classification
+A Severity 1 continuity event is a confirmed outage or integrity failure that prevents a contracted customer from accessing a primary production workflow. A suspected incident remains under investigation until the incident commander records the confirmation decision and names the affected service boundary.
+
+3. Emergency export obligation
+When a Severity 1 continuity event is confirmed, the recovery team may prepare temporary export files while the service is being restored. The provider must deliver a recoverable customer data export within four hours after a Severity 1 continuity event is confirmed. The export may be delivered through the approved recovery channel only after the customer contact has passed the documented verification step.
+
+4. Recovery-status communication
+The incident commander sends internal status updates every thirty minutes while recovery work is active. These internal updates describe working hypotheses, unverified causes, and mitigation progress, but they do not replace a customer notification or satisfy a contractual communication deadline.
+
+5. Restricted-record disclosure
+A restricted-record disclosure occurs when unauthorized access to customer content is confirmed by the designated security lead. Northstar must notify the customer's designated incident contacts within two hours after confirmed unauthorized disclosure of restricted records. The notice must identify the affected service, the known containment status, and the next scheduled customer update without speculating about an unverified root cause.
+
+6. Recovery verification
+Before a recovered workspace is declared stable, the recovery team validates access, export availability, audit-log continuity, and the customer-visible status page. A successful internal validation does not remove the requirement to send the customer notification described in the restricted-record disclosure section.
+
+7. Evidence retention
+The incident record retains timestamps, approved customer messages, and the minimum evidence required for a post-incident review. Draft messages, access tokens, private customer content, and unrelated support transcripts must not be copied into the diagnostic report.
+
+8. Review and exceptions
+An exception to an operational target requires written approval from the incident commander and the accountable customer-success lead. An exception does not change the emergency export obligation, the restricted-record disclosure notification deadline, or the requirement to preserve a traceable decision record.
