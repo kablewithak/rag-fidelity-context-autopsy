@@ -1,4 +1,4 @@
-﻿"""Read-only Streamlit explorers for the fixed synthetic RAG reliability benchmark."""
+"""Read-only Streamlit explorers for the fixed synthetic RAG reliability benchmark."""
 
 from __future__ import annotations
 
@@ -28,6 +28,11 @@ from rag_lab.retrieval_explorer import (
     RetrievalCaseView,
     RetrievalPipelineView,
     load_retrieval_case_views,
+)
+from rag_lab.executive_evaluation_report import (
+    ExecutiveEvaluationReport,
+    ExecutivePipelineScorecard,
+    load_executive_evaluation_report,
 )
 from rag_lab.schemas import TextChunk
 
@@ -71,12 +76,18 @@ def load_context_autopsy_view() -> ContextAutopsyCaseView:
     return load_context_autopsy_case_view(project_root=PROJECT_ROOT)
 
 
+@st.cache_data(show_spinner=False)
+def load_executive_report_view() -> ExecutiveEvaluationReport:
+    # Reads the deterministic Phase 10A contract. It does not calculate fresh metrics.
+    return load_executive_evaluation_report(project_root=PROJECT_ROOT)
+
+
 def main() -> None:
-    """Render read-only evidence, chunking, retrieval, and context-autopsy surfaces."""
+    """Render read-only evidence, diagnostic, and executive-report surfaces."""
 
     st.title("RAG Fidelity & Context Autopsy")
     st.caption(
-        "Read-only reliability demo Â· fixed synthetic cases Â· reviewed four-pipeline baseline"
+        "Read-only reliability demo | fixed synthetic cases | reviewed four-pipeline baseline"
     )
 
     try:
@@ -84,6 +95,7 @@ def main() -> None:
         chunking_views = load_chunking_views()
         retrieval_views = load_retrieval_views()
         context_autopsy_view = load_context_autopsy_view()
+        executive_report_view = load_executive_report_view()
     except (OSError, RuntimeError, ValueError) as error:
         st.error("The explorer could not load its fixed synthetic benchmark assets.")
         st.exception(error)
@@ -103,16 +115,23 @@ def main() -> None:
         st.header("Explorer")
         selected_surface = st.radio(
             "Read-only surface",
-            options=("Failure case", "Chunking", "Retrieval", "Context autopsy"),
+            options=("Executive report", "Failure case", "Chunking", "Retrieval", "Context autopsy"),
             horizontal=False,
         )
         st.divider()
-        st.header("Case selection")
-        selected_case_id = st.selectbox(
-            "Fixed diagnostic case",
-            options=tuple(failure_by_case_id),
-            format_func=lambda case_id: _case_label(failure_by_case_id[case_id]),
-        )
+        if selected_surface == "Executive report":
+            st.caption("Guided route")
+            st.write(
+                "Start with the executive report, then open the diagnostic explorers only "
+                "when the audience needs the underlying failure mechanism."
+            )
+        else:
+            st.header("Case selection")
+            selected_case_id = st.selectbox(
+                "Fixed diagnostic case",
+                options=tuple(failure_by_case_id),
+                format_func=lambda case_id: _case_label(failure_by_case_id[case_id]),
+            )
         st.divider()
         st.caption("Demo boundary")
         st.write(
@@ -129,7 +148,9 @@ def main() -> None:
             "rendered context, or generated answers are loaded."
         )
 
-    if selected_surface == "Failure case":
+    if selected_surface == "Executive report":
+        _render_executive_report(executive_report_view)
+    elif selected_surface == "Failure case":
         _render_failure_case(failure_by_case_id[selected_case_id])
     elif selected_surface == "Chunking":
         _render_chunking_case(chunking_by_case_id[selected_case_id])
@@ -201,7 +222,7 @@ def _render_chunking_case(view: ChunkingCaseView) -> None:
     """Render character versus sentence-aware token chunking for one synthetic case."""
 
     case = view.case
-    st.subheader(f"{case.case_id.replace('_', ' ').title()} Â· Chunking Autopsy")
+    st.subheader(f"{case.case_id.replace('_', ' ').title()} | Chunking Autopsy")
     st.caption(
         "This is a deterministic local chunking comparison. It is not a retrieval, "
         "reranking, context-packing, or answer-generation result."
@@ -213,7 +234,7 @@ def _render_chunking_case(view: ChunkingCaseView) -> None:
     st.markdown("### Gold evidence under inspection")
     st.code(case.gold_evidence_text, language=None)
     st.caption(
-        f"Synthetic source span: characters {view.gold_evidence_start}â€“"
+        f"Synthetic source span: characters {view.gold_evidence_start}-"
         f"{view.gold_evidence_end} of {view.source_char_count}"
     )
 
@@ -296,7 +317,7 @@ def _render_retrieval_case(view: RetrievalCaseView) -> None:
     case = view.case
     baseline = view.baseline_view
 
-    st.subheader(f"{case.case_id.replace('_', ' ').title()} Â· Retrieval Autopsy")
+    st.subheader(f"{case.case_id.replace('_', ' ').title()} | Retrieval Autopsy")
     st.caption(
         "This surface reads reviewed candidate presence and rank fields from the committed "
         "baseline artifact. It does not perform a fresh retrieval or reranking run."
@@ -374,6 +395,187 @@ def _render_retrieval_case(view: RetrievalCaseView) -> None:
 
 
 
+def _render_executive_report(report: ExecutiveEvaluationReport) -> None:
+    # Render the Phase 10A report contract as a guided CTO route.
+    baseline = report.baseline_scorecard
+    strongest = report.strongest_scorecard
+    inclusion_delta = (
+        strongest.evidence_inclusion_rate.value - baseline.evidence_inclusion_rate.value
+    ) * 100
+    recall_delta = (
+        strongest.retrieval_recall_at_k.value - baseline.retrieval_recall_at_k.value
+    ) * 100
+    mrr_delta = strongest.mrr_at_10 - baseline.mrr_at_10
+
+    st.subheader("Executive Evaluation Report v1")
+    st.caption(
+        "Guided CTO review | reviewed benchmark evidence plus a separately labelled "
+        "controlled context proof"
+    )
+    st.info(
+        f"The reviewed baseline retained complete gold evidence in "
+        f"{baseline.evidence_inclusion_rate.numerator} of {report.evaluated_case_count} fixed "
+        f"cases. The strongest reviewed pipeline retained it in "
+        f"{strongest.evidence_inclusion_rate.numerator} of {report.evaluated_case_count}."
+    )
+
+    columns = st.columns(4)
+    _render_executive_metric(
+        columns[0],
+        "Baseline evidence inclusion",
+        _rate_label(baseline.evidence_inclusion_rate),
+        baseline.pipeline_label,
+    )
+    _render_executive_metric(
+        columns[1],
+        "Strongest evidence inclusion",
+        _rate_label(strongest.evidence_inclusion_rate),
+        strongest.pipeline_label,
+    )
+    _render_executive_metric(
+        columns[2],
+        "Evidence inclusion change",
+        f"+{inclusion_delta:.1f} pp",
+        f"Recall change: +{recall_delta:.1f} pp",
+    )
+    _render_executive_metric(
+        columns[3],
+        "MRR@10 change",
+        f"+{mrr_delta:.3f}",
+        f"Strongest MRR@10: {strongest.mrr_at_10:.3f}",
+    )
+
+    st.markdown("### 1. Reviewed pipeline progression")
+    st.dataframe(
+        [_executive_scorecard_row(item) for item in report.pipeline_scorecards],
+        use_container_width=True,
+        hide_index=True,
+    )
+    st.caption(
+        f"Recall@{report.retrieval_metric_k} is separate from candidate-pool depth. "
+        "Dropped evidence is measured only among cases where complete gold evidence "
+        "entered the candidate set."
+    )
+
+    st.markdown("### 2. Observed baseline failure map")
+    st.dataframe(
+        [_baseline_failure_row(item) for item in report.baseline_failure_stages],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.markdown("### 3. Observed repair sequence")
+    for position, recommendation in enumerate(report.repair_sequence, start=1):
+        st.markdown(
+            f"#### {position}. "
+            f"{recommendation.recommendation_id.value.replace('_', ' ').title()}"
+        )
+        st.write(recommendation.recommendation)
+        st.caption(
+            "Observed labels: "
+            + ", ".join(
+                label.value.replace("_", " ")
+                for label in recommendation.observed_failure_labels
+            )
+        )
+        st.caption(
+            "Watch: "
+            + ", ".join(recommendation.metrics_to_watch)
+            + " | Trade-off: "
+            + recommendation.trade_off
+        )
+
+    st.markdown("### 4. Separate controlled context proof")
+    context = report.controlled_context_finding
+    st.warning(
+        "This is not counted as a standard four-pipeline benchmark regression. "
+        "It is a separate controlled local mechanism proof."
+    )
+    context_columns = st.columns(4)
+    _render_executive_metric(
+        context_columns[0],
+        "Calibrated context window",
+        str(context.calibrated_context_tokens),
+        f"{context.reserved_output_tokens} reserved output tokens",
+    )
+    _render_executive_metric(
+        context_columns[1],
+        "Gold evidence before packing",
+        f"Reranked #{context.gold_evidence_rank_before_context}",
+        f"Fixed case: {context.case_id}",
+    )
+    _render_executive_metric(
+        context_columns[2],
+        "Verbose wrapper outcome",
+        "Dropped",
+        context.verbose_drop_reason.value.replace("_", " "),
+    )
+    _render_executive_metric(
+        context_columns[3],
+        "Compact wrapper outcome",
+        "Included",
+        (
+            f"Wrapper tax: {context.compact_wrapper_tax_tokens} tokens "
+            f"vs {context.verbose_wrapper_tax_tokens}"
+        ),
+    )
+
+    with st.expander("Guided CTO demo route", expanded=True):
+        st.markdown("1. Start here: establish the reviewed baseline gap.")
+        st.markdown("2. Open Chunking to inspect evidence survival at segmentation.")
+        st.markdown("3. Open Retrieval to separate candidate misses from ranking losses.")
+        st.markdown("4. Open Context autopsy to inspect measured wrapper-tax pressure.")
+        st.markdown(
+            "5. Use the repair sequence only for observed baseline failures. "
+            "Do not infer generated-answer quality from these evidence-selection metrics."
+        )
+
+    with st.expander("Decision boundary", expanded=False):
+        st.write(
+            "This route reads a deterministic report contract. It contains no fixed-case "
+            "queries, gold evidence text, expected answers, source documents, raw chunks, "
+            "prompts, candidate scores, rendered context, or generated answers."
+        )
+        st.caption(
+            f"Artifact: {report.artifact_id} | Run: {report.source_run_id} | "
+            f"Tokenizer: {report.tokenizer_name}"
+        )
+
+
+def _render_executive_metric(
+    container: object,
+    label: str,
+    value: str,
+    detail: str,
+) -> None:
+    container.metric(label, value)
+    container.caption(detail)
+
+
+def _executive_scorecard_row(scorecard: ExecutivePipelineScorecard) -> dict[str, object]:
+    return {
+        "Pipeline": scorecard.pipeline_label,
+        "Recall": _rate_label(scorecard.retrieval_recall_at_k),
+        "MRR@10": f"{scorecard.mrr_at_10:.3f}",
+        "Evidence inclusion": _rate_label(scorecard.evidence_inclusion_rate),
+        "Dropped among eligible candidates": _rate_label(scorecard.dropped_evidence_rate),
+    }
+
+
+def _baseline_failure_row(summary: object) -> dict[str, object]:
+    return {
+        "Evidence boundary": summary.loss_stage.value.replace("_", " "),
+        "Affected fixed cases": summary.affected_case_count,
+        "Failure labels": ", ".join(
+            label.value.replace("_", " ") for label in summary.failure_labels
+        ),
+    }
+
+
+def _rate_label(rate: object) -> str:
+    return f"{rate.value * 100:.1f}% ({rate.numerator}/{rate.denominator})"
+
+
 def _render_context_autopsy_case(view: ContextAutopsyCaseView) -> None:
     """Render the fixed controlled context-pressure autopsy without rerunning retrieval."""
 
@@ -381,7 +583,7 @@ def _render_context_autopsy_case(view: ContextAutopsyCaseView) -> None:
     verbose = view.verbose_audit
     compact = view.compact_citation
 
-    st.subheader(f"{case.case_id.replace('_', ' ').title()} Â· Context Autopsy")
+    st.subheader(f"{case.case_id.replace('_', ' ').title()} | Context Autopsy")
     st.warning(
         "Controlled local diagnostic: both render profiles receive the same calibrated context "
         "window and the same fixed reranked candidate order. This is a mechanism proof, not a "
@@ -398,7 +600,7 @@ def _render_context_autopsy_case(view: ContextAutopsyCaseView) -> None:
     st.markdown("### Gold evidence under inspection")
     st.code(case.gold_evidence_text, language=None)
     st.caption(
-        f"Tokenizer: `{view.tokenizer_name}` Â· fixed sentence-aware source budget: "
+        f"Tokenizer: `{view.tokenizer_name}` | fixed sentence-aware source budget: "
         f"{view.sentence_aware_max_tokens} tokens"
     )
 
@@ -489,13 +691,13 @@ def _render_context_profile(*, title: str, assembly: ContextAssemblyView) -> Non
         st.warning(f"Gold evidence did not reach final rendered context: {reason}.")
 
     st.caption(
-        f"Profile: `{assembly.render_profile.value}` Â· candidates: {assembly.candidate_count} Â· "
-        f"included: {assembly.included_chunk_count} Â· dropped: {assembly.dropped_chunk_count}"
+        f"Profile: `{assembly.render_profile.value}` | candidates: {assembly.candidate_count} | "
+        f"included: {assembly.included_chunk_count} | dropped: {assembly.dropped_chunk_count}"
     )
     st.caption(
-        f"Raw evidence used: {assembly.used_raw_evidence_tokens} Â· "
-        f"rendered evidence used: {assembly.used_rendered_evidence_tokens} Â· "
-        f"wrapper tax: {assembly.rendering_token_tax_tokens} Â· "
+        f"Raw evidence used: {assembly.used_raw_evidence_tokens} | "
+        f"rendered evidence used: {assembly.used_rendered_evidence_tokens} | "
+        f"wrapper tax: {assembly.rendering_token_tax_tokens} | "
         f"remaining: {assembly.remaining_evidence_tokens}"
     )
     st.dataframe(
@@ -530,7 +732,7 @@ def _context_decision_row(decision: ContextDecisionView) -> dict[str, object]:
         "Wrapper tax": decision.rendering_token_tax,
         "Gold evidence": "Yes" if decision.gold_evidence_match else "No",
         "Decision": "Included" if decision.included else "Dropped",
-        "Drop reason": decision.drop_reason.value if decision.drop_reason else "â€”",
+        "Drop reason": decision.drop_reason.value if decision.drop_reason else "-",
     }
 
 
@@ -550,7 +752,7 @@ def _render_controlled_boundary_probe(
         "benchmark configuration and does not change any benchmark metric."
     )
     st.caption(
-        f"Controlled character window: {probe.character_window_characters} characters Â· "
+        f"Controlled character window: {probe.character_window_characters} characters | "
         f"Sentence-aware repair budget: {probe.sentence_aware_max_tokens} tokens"
     )
     character_column, token_column = st.columns(2)
@@ -615,9 +817,9 @@ def _render_chunking_strategy(
         st.warning("Gold evidence is not preserved by this emitted chunk set.")
 
     st.caption(
-        f"Tokenizer: `{report.tokenizer_name}` Â· "
-        f"Boundary quality: `{report.boundary_quality.value}` Â· "
-        f"Average chunk size: {report.avg_token_count} tokens Â· "
+        f"Tokenizer: `{report.tokenizer_name}` | "
+        f"Boundary quality: `{report.boundary_quality.value}` | "
+        f"Average chunk size: {report.avg_token_count} tokens | "
         f"Maximum: {report.max_token_count} tokens"
     )
 
@@ -628,8 +830,8 @@ def _render_chunking_strategy(
             gold_end=gold_end,
         )
         label = (
-            f"Chunk {chunk.chunk_index + 1} Â· {chunk.token_count} tokens Â· "
-            f"source chars {chunk.source_char_start}â€“{chunk.source_char_end} Â· {relation}"
+            f"Chunk {chunk.chunk_index + 1} | {chunk.token_count} tokens | "
+            f"source chars {chunk.source_char_start}-{chunk.source_char_end} | {relation}"
         )
         with st.expander(label, expanded=relation != "no gold evidence"):
             st.code(chunk.text, language=None)
@@ -697,11 +899,11 @@ def _status_row(status: PipelineEvidenceStatus) -> dict[str, object]:
         "Retrieved rank": status.retrieved_gold_rank,
         "Reranked rank": status.reranked_gold_rank,
         "Rank used for context": status.rank_used_for_context,
-        "Loss stage": status.loss_stage.value if status.loss_stage else "â€”",
+        "Loss stage": status.loss_stage.value if status.loss_stage else "-",
         "Failure labels": (
             ", ".join(label.value for label in status.failure_labels)
             if status.failure_labels
-            else "â€”"
+            else "-"
         ),
     }
 
@@ -720,7 +922,7 @@ def _retrieval_row(view: RetrievalPipelineView) -> dict[str, object]:
         "Reranked rank": _rank_label(view.reranked_gold_rank),
         "Rank used for context": _rank_label(view.rank_used_for_context),
         "Final evidence": "Included" if view.gold_evidence_included else "Not included",
-        "Loss stage": view.loss_stage.value if view.loss_stage else "â€”",
+        "Loss stage": view.loss_stage.value if view.loss_stage else "-",
     }
 
 
@@ -768,7 +970,7 @@ def _candidate_state_label(state: CandidateSetState) -> str:
 def _rank_label(rank: int | None) -> str:
     """Render a rank without representing absence as rank zero."""
 
-    return f"#{rank}" if rank is not None else "â€”"
+    return f"#{rank}" if rank is not None else "-"
 
 
 def _loss_detail(view: RetrievalPipelineView) -> str:
@@ -784,7 +986,7 @@ def _loss_detail(view: RetrievalPipelineView) -> str:
 def _case_label(view: FailureCaseView) -> str:
     """Make the selector useful without leaking more corpus data into the sidebar."""
 
-    return f"{view.case.case_id} Â· {view.case.document_type.value.replace('_', ' ')}"
+    return f"{view.case.case_id} | {view.case.document_type.value.replace('_', ' ')}"
 
 
 if __name__ == "__main__":
