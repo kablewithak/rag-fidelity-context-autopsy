@@ -8,7 +8,6 @@ rendering under the same calibrated context window.
 
 No raw rendered context or chunk text is retained in the view models.
 """
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -190,6 +189,7 @@ def load_context_autopsy_case_view(*, project_root: Path) -> ContextAutopsyCaseV
         token_counter=token_counter,
         sentence_aware_max_tokens=DEFAULT_STRESS_CHUNK_MAX_TOKENS,
         reserved_output_tokens=DEFAULT_RESERVED_OUTPUT_TOKENS,
+        project_root=project_root,
     )
 
 
@@ -199,6 +199,7 @@ def build_context_autopsy_case_view(
     token_counter: TokenCounter,
     sentence_aware_max_tokens: int = DEFAULT_STRESS_CHUNK_MAX_TOKENS,
     reserved_output_tokens: int = DEFAULT_RESERVED_OUTPUT_TOKENS,
+    project_root: Path | None = None,
 ) -> ContextAutopsyCaseView:
     """Measure the fixed pressure trace under verbose and compact rendering profiles.
 
@@ -220,6 +221,7 @@ def build_context_autopsy_case_view(
     trace = build_context_pressure_trace(
         token_counter=token_counter,
         max_tokens=sentence_aware_max_tokens,
+        project_root=project_root,
     )
     if trace.case_id != case.case_id:
         raise ContextAutopsyExplorerError(
