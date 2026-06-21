@@ -6,6 +6,8 @@
 __pycache__/
 *.py[cod]
 outputs/
-docs/
+docs/*
+!docs/reports/
+!docs/reports/**
 tests/
 *.zip

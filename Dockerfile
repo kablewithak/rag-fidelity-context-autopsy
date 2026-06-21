@@ -17,6 +17,7 @@ COPY --chown=user rag_lab ./rag_lab
 COPY --chown=user app ./app
 COPY --chown=user artifacts ./artifacts
 COPY --chown=user data ./data
+COPY --chown=user docs/reports ./docs/reports
 
 RUN python -m pip install --no-cache-dir --upgrade pip && \
     python -m pip install --no-cache-dir ".[tiktoken,demo]"
