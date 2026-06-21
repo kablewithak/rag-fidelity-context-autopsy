@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import rag_lab.diagnostic_scenarios as diagnostic_scenarios
 from rag_lab.context_assembly import ContextDropReason, ContextRenderProfile
 from rag_lab.context_autopsy_explorer import (
     ContextAutopsyExplorerError,
@@ -27,11 +28,12 @@ def _case(case_id: str = CONTEXT_PRESSURE_CASE_ID):
     )
 
 
-def _view():
+def _view(*, project_root: Path | None = None):
     return build_context_autopsy_case_view(
         case=_case(),
         token_counter=UnicodeCodePointTokenCounter(),
         sentence_aware_max_tokens=OFFLINE_UNICODE_CONTEXT_PRESSURE_MAX_TOKENS,
+        project_root=project_root,
     )
 
 
@@ -74,6 +76,15 @@ def test_context_autopsy_emits_a_specific_context_budget_diagnosis() -> None:
         FailureLabel.RELEVANT_CHUNK_DROPPED_BY_BUDGET,
         FailureLabel.CONTEXT_BUDGET_EXCEEDED,
     )
+
+
+def test_context_autopsy_uses_explicit_project_root_for_diagnostic_assets(monkeypatch) -> None:
+    monkeypatch.setattr(diagnostic_scenarios, "PROJECT_ROOT", PROJECT_ROOT / "missing-package-root")
+
+    view = _view(project_root=PROJECT_ROOT)
+
+    assert view.case.case_id == CONTEXT_PRESSURE_CASE_ID
+    assert view.compact_citation.gold_evidence_included is True
 
 
 def test_context_autopsy_rejects_any_case_other_than_the_fixed_pressure_case() -> None:

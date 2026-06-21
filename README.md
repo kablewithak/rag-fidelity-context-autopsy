@@ -1,3 +1,16 @@
+---
+title: RAG Fidelity & Context Autopsy
+emoji: 🔎
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+suggested_hardware: cpu-basic
+python_version: "3.12"
+startup_duration_timeout: 30m
+short_description: Read-only synthetic RAG reliability benchmark demo.
+---
+
 # RAG Fidelity & Context Autopsy Lab
 
 A local-first RAG reliability lab for diagnosing how tokenization, retrieval, reranking, and context assembly affect whether evidence reaches the model.
@@ -16,9 +29,9 @@ The lab compares a deliberately weak baseline with stronger interventions and pr
 
 ## Current milestone
 
-**Phase 10A — Deterministic Executive Evaluation Report**
+**Phase 11A — Hugging Face Spaces CPU deployment package**
 
-The repository now has six layers:
+The repository now has seven layers:
 
 1. A reviewed, committed four-pipeline synthetic benchmark:
    ```text
@@ -30,6 +43,7 @@ The repository now has six layers:
 4. A read-only Retrieval Explorer for inspecting committed candidate presence, first-stage rank, reranked rank, final evidence selection, and bounded trace references.
 5. A controlled Context Autopsy Explorer for measuring how static prompt tax and evidence wrappers can displace a reranked gold candidate under one calibrated token window.
 6. A deterministic executive evaluation report that converts the reviewed baseline, observed repair sequence, and separate controlled context proof into a CTO-readable Markdown decision surface.
+7. A reproducible Docker package for a CPU-only Hugging Face Spaces deployment of the existing read-only demo.
 
 The benchmark artifact captures bounded comparison evidence and exact provenance:
 
@@ -40,7 +54,7 @@ The benchmark artifact captures bounded comparison evidence and exact provenance
 
 The artifact stores IDs, hashes, ranks, counts, and metrics only. It does not serialize raw documents, chunks, prompts, rendered context, candidate scores, or generated answers.
 
-**Status:** production-shaped local evaluation harness over synthetic data with locally runnable read-only demo surfaces and a deterministic executive readout. It is not a production deployment, customer-data evaluation, grounded-answer guarantee, or production-readiness claim.
+**Status:** production-shaped local evaluation harness with a reproducible CPU deployment package for its read-only synthetic demo. It is not a verified hosted deployment, customer-data evaluation, grounded-answer guarantee, production monitoring implementation, or production-readiness claim.
 
 ## Four fixed pipelines
 
@@ -86,9 +100,9 @@ rag-fidelity-context-autopsy/
 │   ├── retrieval_explorer.py               # Typed reviewed candidate and rank views
 │   ├── context_autopsy_explorer.py         # Typed controlled context-budget accounting view
 │   ├── executive_evaluation_report.py      # Typed executive report contract and renderer
-│   ├── chunkers.py                         # Character and sentence-aware token chunking
-│   ├── retrievers.py                       # BM25, dense, and hybrid retrieval traces
-│   ├── rerankers.py                        # Cross-encoder reranking traces
+│   ├── chunkers.py                          # Character and sentence-aware token chunking
+│   ├── retrievers.py                        # BM25, dense, and hybrid retrieval traces
+│   ├── rerankers.py                         # Cross-encoder reranking traces
 │   ├── context_assembly.py                 # Measured rendered-context packing
 │   ├── comparison.py                       # Fixed comparison contracts and metric reducer
 │   ├── comparison_runner.py                # Real four-pipeline execution harness
@@ -123,8 +137,9 @@ python -m pytest
 
 ## Run the read-only Streamlit explorers
 
-The app contains four local-only, read-only surfaces:
+The app contains five local-only, read-only surfaces:
 
+- **Executive report:** follow the reviewed scorecard, failure-stage summary, repair sequence, and separate controlled context finding.
 - **Failure case:** inspect a fixed case's reviewed evidence lifecycle across all four pipelines.
 - **Chunking:** inspect actual standard character and sentence-aware outcomes, then open the separate controlled boundary probe for `token_boundary_export_017` to see a deliberately positioned character cut split the same gold clause.
 - **Retrieval:** inspect the reviewed top-8 candidate boundary, first-stage rank, reranked rank where available, final evidence selection, loss stage, and bounded trace IDs.
@@ -134,14 +149,40 @@ The app contains four local-only, read-only surfaces:
 python -m streamlit run .\app\streamlit_app.py
 ```
 
-Open the local URL printed by Streamlit. Select a fixed diagnostic case in the sidebar, then change the surface:
+Open the local URL printed by Streamlit. Start on **Executive report**, then open a diagnostic surface only when the audience needs the underlying mechanism:
 
+- **Executive report** reads the typed Phase 10A decision contract without calculating fresh metrics. It shows reviewed pipeline progression, observed baseline failure stages, observed repair sequence, and the separate controlled context-pressure proof.
 - **Failure case** shows query, gold evidence, expected answer, diagnostic note, baseline loss stage, failure labels, and per-pipeline ranks.
 - **Chunking** deterministically emits local chunks with `tiktoken:cl100k_base` over the synthetic source document. It shows emitted chunks, measured token counts, source-character spans, and whether one emitted chunk contains the complete gold evidence. The `token_boundary_export_017` case also exposes a clearly labelled controlled boundary probe, which is separate from standard benchmark execution and intentionally places a character boundary inside the known clause.
 - **Retrieval** reads the reviewed comparison artifact without rerunning models. It distinguishes evidence unavailable after chunking from a genuine candidate miss, shows candidate-pool depth separately from the Recall@5 reporting cutoff, displays first-stage and reranked ranks, and exposes bounded trace IDs only.
 - **Context autopsy** executes only the fixed synthetic context-pressure trace with `tiktoken:cl100k_base`. It measures static prompt tax, per-candidate wrapper tax, include/drop decisions, and gold-evidence retention under two render profiles using the same calibrated context window. It does not rerun embeddings, retrieval, or reranking.
 
 The app does not write benchmark artifacts or change the fixed corpus. The Context Autopsy Explorer is a controlled mechanism proof, not a claim that the standard reviewed benchmark contains a context-budget regression.
+
+## Package the read-only demo for Hugging Face Spaces
+
+The root README starts with the Docker Space configuration required by Hugging Face Spaces. The deployment image runs the existing Streamlit entrypoint on port `7860` as an unprivileged user.
+
+The image copies only the application, typed reliability contracts, reviewed comparison artifact, and synthetic corpus/cases. It installs `.[tiktoken,demo]` rather than the dense evaluation extras because the hosted routes do not execute embeddings, retrieval, reranking, or baseline regeneration. The hosted surface therefore remains a read-only diagnostic and executive proof asset rather than a fresh benchmark runner.
+
+No secrets, credentials, customer uploads, persistence layer, or external service are required. Create a Docker Space only for this synthetic demo. Do not use this package as a customer-data processing environment.
+
+Before the hosted smoke check, verify the image locally:
+
+```powershell
+docker build --tag rag-fidelity-context-autopsy:local .
+
+docker run --rm --publish 7860:7860 rag-fidelity-context-autopsy:local
+```
+
+Open `http://localhost:7860` and verify:
+
+1. **Executive report** renders by default.
+2. All five read-only surfaces load.
+3. The app states the synthetic-data and no-generated-answer boundary.
+4. No fresh comparison outputs appear under `outputs/comparisons/`.
+
+Hosted acceptance is separate: after the image builds in the Space, verify that the public route loads and that the same five surfaces render. Do not claim deployment completion until that hosted smoke check is retained as evidence.
 
 ## Render and verify the executive evaluation report
 
@@ -200,8 +241,8 @@ The Chunking Explorer renders emitted chunks from the synthetic corpus only. The
 9. Streamlit Retrieval Explorer — **complete**
 10. Controlled Streamlit Context Autopsy Explorer — **complete**
 11. Deterministic executive evaluation report and committed Markdown readout — **complete**
-12. Streamlit executive report surface and guided demo route
-13. Hugging Face Spaces CPU deployment
+12. Streamlit executive report surface and guided demo route — **complete**
+13. Hugging Face Spaces CPU deployment package — **complete**; hosted smoke check pending
 
 ## Streamlit Executive Report route
 
@@ -217,8 +258,8 @@ Recommended walkthrough:
 3. Use **Retrieval** to separate candidate misses from ranking losses.
 4. Use **Context autopsy** to inspect the separate measured wrapper-tax mechanism.
 5. Return to the executive repair sequence. Do not infer generated-answer quality from
-   evidence-selection metrics.
+evidence-selection metrics.
 
 ## Non-claims
 
-This repository does not claim to eliminate hallucinations, prove all RAG systems improve, operate on customer data, represent production readiness, or validate final generated answers. It is an inspectable diagnostic lab operating on fixed synthetic cases.
+This repository does not claim to eliminate hallucinations, prove all RAG systems improve, operate on customer data, represent a verified hosted deployment, represent production readiness, or validate final generated answers. It is an inspectable diagnostic lab operating on fixed synthetic cases.

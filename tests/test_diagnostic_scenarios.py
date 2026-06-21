@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import rag_lab.diagnostic_scenarios as diagnostic_scenarios
 from rag_lab.chunkers import CharacterChunker, SentenceAwareTokenChunker, build_chunking_report
 from rag_lab.context_assembly import (
     ContextAssembler,
@@ -10,6 +13,7 @@ from rag_lab.context_assembly import (
 )
 from rag_lab.diagnostic_scenarios import (
     BOUNDARY_CASE_ID,
+    CONTEXT_PRESSURE_CASE_ID,
     DEFAULT_STRESS_CHUNK_MAX_TOKENS,
     MINIMUM_STRESS_CHUNK_COUNT,
     build_context_pressure_trace,
@@ -20,6 +24,7 @@ from rag_lab.diagnostic_scenarios import (
 from rag_lab.tokenizers import UnicodeCodePointTokenCounter
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # This is an offline structural fixture, not a model-token claim. With the
 # Unicode-codepoint counter, 800 preserves the complete gold sentence while
 # leaving four controlled source chunks for the context-packing comparison.
@@ -70,6 +75,23 @@ def test_context_pressure_default_chunk_budget_creates_real_multi_chunk_pressure
     assert len(chunks) >= MINIMUM_STRESS_CHUNK_COUNT
     assert {chunk.tokenizer_name for chunk in chunks} == {counter.name}
     assert max(chunk.token_count for chunk in chunks) <= DEFAULT_STRESS_CHUNK_MAX_TOKENS
+
+
+def test_controlled_scenarios_use_explicit_project_root_when_package_root_is_unavailable(monkeypatch) -> None:
+    monkeypatch.setattr(diagnostic_scenarios, "PROJECT_ROOT", PROJECT_ROOT / "missing-package-root")
+    counter = UnicodeCodePointTokenCounter()
+
+    case = load_diagnostic_case(BOUNDARY_CASE_ID, project_root=PROJECT_ROOT)
+    source_text = load_stress_source_text(project_root=PROJECT_ROOT)
+    trace = build_context_pressure_trace(
+        token_counter=counter,
+        max_tokens=OFFLINE_UNICODE_CONTEXT_PRESSURE_MAX_TOKENS,
+        project_root=PROJECT_ROOT,
+    )
+
+    assert case.case_id == BOUNDARY_CASE_ID
+    assert case.gold_evidence_text in source_text
+    assert trace.case_id == CONTEXT_PRESSURE_CASE_ID
 
 
 def test_rendered_context_pressure_baseline_loses_gold_and_compact_repair_restores_it() -> None:

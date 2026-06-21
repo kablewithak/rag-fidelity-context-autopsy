@@ -35,18 +35,32 @@ class DiagnosticScenarioError(ValueError):
     """Raised when a fixed diagnostic case cannot be reconstructed exactly."""
 
 
-def load_diagnostic_case(case_id: str) -> EvaluationCase:
+def _resolve_project_root(project_root: Path | None) -> Path:
+    """Use an explicit application root when one is supplied by a host surface."""
+
+    return project_root if project_root is not None else PROJECT_ROOT
+
+
+def load_diagnostic_case(
+    case_id: str,
+    *,
+    project_root: Path | None = None,
+) -> EvaluationCase:
     """Load one named synthetic diagnostic case from the fixed JSONL asset."""
-    cases = load_evaluation_cases(PROJECT_ROOT / "data" / "eval_cases.jsonl")
+
+    root = _resolve_project_root(project_root)
+    cases = load_evaluation_cases(root / "data" / "eval_cases.jsonl")
     case = next((item for item in cases if item.case_id == case_id), None)
     if case is None:
         raise DiagnosticScenarioError(f"missing diagnostic case: {case_id}")
     return case
 
 
-def load_stress_source_text() -> str:
+def load_stress_source_text(*, project_root: Path | None = None) -> str:
     """Load only the controlled stress document through the strict corpus manifest."""
-    documents = load_synthetic_corpus(corpus_directory=PROJECT_ROOT / "data" / "corpus")
+
+    root = _resolve_project_root(project_root)
+    documents = load_synthetic_corpus(corpus_directory=root / "data" / "corpus")
     document = next((item for item in documents if item.source_doc_id == STRESS_SOURCE_DOC_ID), None)
     if document is None:
         raise DiagnosticScenarioError(f"missing stress source document: {STRESS_SOURCE_DOC_ID}")
@@ -57,6 +71,7 @@ def build_stress_chunks(
     *,
     token_counter: TokenCounter,
     max_tokens: int = DEFAULT_STRESS_CHUNK_MAX_TOKENS,
+    project_root: Path | None = None,
 ) -> list[TextChunk]:
     """Create sentence-aware stress chunks under an explicit tokenizer budget.
 
@@ -65,7 +80,8 @@ def build_stress_chunks(
     pressure diagnostic has two distractors, one gold chunk, and one unused
     source chunk rather than silently collapsing into a document-level demo.
     """
-    source_text = load_stress_source_text()
+
+    source_text = load_stress_source_text(project_root=project_root)
     source_token_count = token_counter.count(source_text)
     chunks = SentenceAwareTokenChunker(
         token_counter=token_counter,
@@ -89,6 +105,7 @@ def build_context_pressure_trace(
     *,
     token_counter: TokenCounter,
     max_tokens: int = DEFAULT_STRESS_CHUNK_MAX_TOKENS,
+    project_root: Path | None = None,
 ) -> RerankingTrace:
     """Create a deterministic candidate order where complete gold evidence is rank 3.
 
@@ -96,8 +113,16 @@ def build_context_pressure_trace(
     produced by a live reranker. This lets the autopsy isolate context packing and
     rendered prompt tax from retrieval-model variability.
     """
-    case = load_diagnostic_case(CONTEXT_PRESSURE_CASE_ID)
-    chunks = build_stress_chunks(token_counter=token_counter, max_tokens=max_tokens)
+
+    case = load_diagnostic_case(
+        CONTEXT_PRESSURE_CASE_ID,
+        project_root=project_root,
+    )
+    chunks = build_stress_chunks(
+        token_counter=token_counter,
+        max_tokens=max_tokens,
+        project_root=project_root,
+    )
     gold_chunk = next(
         (chunk for chunk in chunks if case.gold_evidence_text in chunk.text),
         None,
