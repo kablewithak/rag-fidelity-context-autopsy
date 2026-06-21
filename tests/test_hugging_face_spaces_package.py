@@ -36,6 +36,7 @@ def test_dockerfile_runs_only_the_read_only_demo_runtime() -> None:
     assert 'COPY --chown=user rag_lab ./rag_lab' in source
     assert 'COPY --chown=user artifacts ./artifacts' in source
     assert 'COPY --chown=user data ./data' in source
+    assert 'COPY --chown=user docs/reports ./docs/reports' in source
     assert '".[tiktoken,demo]"' in source
     assert "sentence-transformers" not in source
     assert "streamlit run app/streamlit_app.py" in source
@@ -44,7 +45,9 @@ def test_dockerfile_runs_only_the_read_only_demo_runtime() -> None:
     assert "--server.headless=true" in source
 
 
-def test_dockerignore_excludes_local_outputs_and_development_state() -> None:
+def test_dockerignore_excludes_local_outputs_and_development_state_but_keeps_review_reports() -> None:
     ignored = set(DOCKERIGNORE_PATH.read_text(encoding="utf-8").splitlines())
 
-    assert {".git/", ".venv/", ".pytest_cache/", "__pycache__/", "outputs/", "docs/", "tests/"} <= ignored
+    assert {".git/", ".venv/", ".pytest_cache/", "__pycache__/", "outputs/", "tests/"} <= ignored
+    assert "docs/" not in ignored
+    assert {"docs/*", "!docs/reports/", "!docs/reports/**"} <= ignored
