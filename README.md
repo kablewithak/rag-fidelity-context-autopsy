@@ -203,6 +203,22 @@ The Chunking Explorer renders emitted chunks from the synthetic corpus only. The
 12. Streamlit executive report surface and guided demo route
 13. Hugging Face Spaces CPU deployment
 
+## Streamlit Executive Report route
+
+The **Executive report** route is the guided CTO entry point. It renders the typed
+Phase 10A decision contract without calculating fresh metrics. It shows reviewed
+pipeline progression, observed baseline failure stages, observed repair sequence, and
+the separate controlled context-pressure proof.
+
+Recommended walkthrough:
+
+1. Start on **Executive report**.
+2. Use **Chunking** to inspect evidence survival at segmentation.
+3. Use **Retrieval** to separate candidate misses from ranking losses.
+4. Use **Context autopsy** to inspect the separate measured wrapper-tax mechanism.
+5. Return to the executive repair sequence. Do not infer generated-answer quality from
+   evidence-selection metrics.
+
 ## Non-claims
 
 This repository does not claim to eliminate hallucinations, prove all RAG systems improve, operate on customer data, represent production readiness, or validate final generated answers. It is an inspectable diagnostic lab operating on fixed synthetic cases.
