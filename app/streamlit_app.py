@@ -34,6 +34,11 @@ from rag_lab.executive_evaluation_report import (
     ExecutivePipelineScorecard,
     load_executive_evaluation_report,
 )
+from rag_lab.public_transfer_explorer import (
+    PublicTransferPipelineScorecard,
+    PublicTransferReviewView,
+    load_public_transfer_review_view as load_public_transfer_review_explorer_view,
+)
 from rag_lab.schemas import TextChunk
 
 
@@ -82,12 +87,20 @@ def load_executive_report_view() -> ExecutiveEvaluationReport:
     return load_executive_evaluation_report(project_root=PROJECT_ROOT)
 
 
+@st.cache_data(show_spinner=False)
+def load_public_transfer_review_view() -> PublicTransferReviewView:
+    """Cache reviewed public-transfer evidence without rerunning models."""
+
+    return load_public_transfer_review_explorer_view(project_root=PROJECT_ROOT)
+
+
 def main() -> None:
     """Render read-only evidence, diagnostic, and executive-report surfaces."""
 
     st.title("RAG Fidelity & Context Autopsy")
     st.caption(
-        "Read-only reliability demo | fixed synthetic cases | reviewed four-pipeline baseline"
+        "Read-only reliability demo | fixed synthetic benchmark | reviewed four-pipeline "
+        "baseline | reviewed public transfer probe"
     )
 
     try:
@@ -96,8 +109,9 @@ def main() -> None:
         retrieval_views = load_retrieval_views()
         context_autopsy_view = load_context_autopsy_view()
         executive_report_view = load_executive_report_view()
+        public_transfer_review_view = load_public_transfer_review_view()
     except (OSError, RuntimeError, ValueError) as error:
-        st.error("The explorer could not load its fixed synthetic benchmark assets.")
+        st.error("The explorer could not load its fixed reviewed evidence assets.")
         st.exception(error)
         st.stop()
 
@@ -135,13 +149,15 @@ def main() -> None:
         st.divider()
         st.caption("Demo boundary")
         st.write(
-            "This demo reads fixed synthetic cases and a reviewed baseline artifact. "
+            "This demo reads a fixed synthetic benchmark and a separately reviewed "
+            "public-transfer artifact. "
             "The Chunking Explorer deterministically emits local chunks with "
             "`tiktoken:cl100k_base`. The Retrieval Explorer reads committed candidate "
             "presence, ranks, loss labels, and trace IDs. The Context Autopsy Explorer "
             "runs only the fixed local context-pressure trace to measure rendered prompt "
             "tax under an explicit tokenizer. It does not run embeddings, retrieval, "
-            "reranking, or answer generation."
+            "reranking, or answer generation. The Executive Report presents the public "
+            "probe side by side with the synthetic benchmark; their rates must not be pooled."
         )
         st.caption(
             "No customer data, credentials, prompts, raw retrieval candidates, raw "
@@ -149,7 +165,7 @@ def main() -> None:
         )
 
     if selected_surface == "Executive report":
-        _render_executive_report(executive_report_view)
+        _render_executive_report(executive_report_view, public_transfer_review_view)
     elif selected_surface == "Failure case":
         _render_failure_case(failure_by_case_id[selected_case_id])
     elif selected_surface == "Chunking":
@@ -395,7 +411,10 @@ def _render_retrieval_case(view: RetrievalCaseView) -> None:
 
 
 
-def _render_executive_report(report: ExecutiveEvaluationReport) -> None:
+def _render_executive_report(
+    report: ExecutiveEvaluationReport,
+    public_transfer_review: PublicTransferReviewView,
+) -> None:
     # Render the Phase 10A report contract as a guided CTO route.
     baseline = report.baseline_scorecard
     strongest = report.strongest_scorecard
@@ -520,13 +539,18 @@ def _render_executive_report(report: ExecutiveEvaluationReport) -> None:
         ),
     )
 
+    _render_public_transfer_review(view=public_transfer_review)
+
     with st.expander("Guided CTO demo route", expanded=True):
         st.markdown("1. Start here: establish the reviewed baseline gap.")
         st.markdown("2. Open Chunking to inspect evidence survival at segmentation.")
         st.markdown("3. Open Retrieval to separate candidate misses from ranking losses.")
         st.markdown("4. Open Context autopsy to inspect measured wrapper-tax pressure.")
         st.markdown(
-            "5. Use the repair sequence only for observed baseline failures. "
+            "5. Review the separate public transfer probe before generalizing a synthetic finding."
+        )
+        st.markdown(
+            "6. Use the repair sequence only for observed benchmark failures. "
             "Do not infer generated-answer quality from these evidence-selection metrics."
         )
 
@@ -540,6 +564,103 @@ def _render_executive_report(report: ExecutiveEvaluationReport) -> None:
             f"Artifact: {report.artifact_id} | Run: {report.source_run_id} | "
             f"Tokenizer: {report.tokenizer_name}"
         )
+
+
+def _render_public_transfer_review(*, view: PublicTransferReviewView) -> None:
+    """Render reviewed public-transfer evidence without pooling it with synthetic rates."""
+
+    baseline = view.baseline_scorecard
+    strongest = view.strongest_scorecard
+
+    st.markdown("### 5. Reviewed public-corpus transfer probe")
+    st.warning(
+        "Separate external-validity probe: this fixed public SQuAD v1.1 result sits beside "
+        "the controlled 18-case synthetic benchmark. Their rates must not be pooled into one "
+        "headline score or used to replace the synthetic regression gate."
+    )
+    st.caption(
+        f"Public artifact: `{view.public_artifact_id}` | Synthetic artifact: "
+        f"`{view.synthetic_artifact_id}` | comparison mode: `{view.comparison_mode}`"
+    )
+
+    columns = st.columns(4)
+    _render_executive_metric(
+        columns[0],
+        "Public source documents",
+        str(view.public_source_document_count),
+        f"Dataset: {view.public_dataset_id} v{view.public_dataset_version}",
+    )
+    _render_executive_metric(
+        columns[1],
+        "Public evaluation cases",
+        str(view.public_evaluation_case_count),
+        f"Synthetic benchmark remains {view.synthetic_case_count} cases",
+    )
+    _render_executive_metric(
+        columns[2],
+        "Public baseline Recall@5",
+        _rate_label(baseline.retrieval_recall_at_k),
+        baseline.pipeline_id.value,
+    )
+    _render_executive_metric(
+        columns[3],
+        "Public strongest evidence inclusion",
+        _rate_label(strongest.evidence_inclusion_rate),
+        strongest.pipeline_id.value,
+    )
+
+    st.dataframe(
+        [_public_transfer_scorecard_row(scorecard) for scorecard in view.pipeline_scorecards],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.markdown("#### Measured transfer interpretation")
+    st.write(
+        f"Within this fixed {view.public_evaluation_case_count}-case public fixture, "
+        f"`{strongest.pipeline_id.value}` changed MRR@10 by {view.mrr_delta:+.3f} and "
+        f"evidence inclusion by {view.evidence_inclusion_delta_pp:+.1f} percentage points "
+        f"relative to `{baseline.pipeline_id.value}`."
+    )
+    st.write(
+        f"Sentence-aware dense retrieval changed Recall@5 by "
+        f"{view.sentence_aware_dense_recall_delta_pp:+.1f} percentage points relative to "
+        f"the public character+dense baseline. This is not evidence for a universal chunking rule."
+    )
+
+    with st.expander("Public fixture and review boundary", expanded=False):
+        st.caption(
+            f"License: {view.public_license_name} | source SHA-256: "
+            f"`{view.public_source_sha256}`"
+        )
+        st.caption(
+            f"Fixture manifest SHA-256: `{view.public_fixture_manifest_sha256}` | "
+            f"reviewed run: `{view.public_source_run_id}`"
+        )
+        st.write(
+            "This surface loads reviewed metrics, identifiers, and hashes only. It does not "
+            "load public source passages, questions, answers, chunks, prompts, candidate "
+            "scores, rendered context, or generated answers."
+        )
+        st.write(
+            "The outcomes measure evidence survival through chunking, retrieval, ranking, "
+            "and context selection. They do not measure final-answer correctness, customer "
+            "data performance, production latency, security posture, or production readiness."
+        )
+
+
+def _public_transfer_scorecard_row(
+    scorecard: PublicTransferPipelineScorecard,
+) -> dict[str, object]:
+    """Convert one public pipeline scorecard into a bounded Streamlit row."""
+
+    return {
+        "Pipeline": scorecard.pipeline_id.value,
+        "Recall@5": _rate_label(scorecard.retrieval_recall_at_k),
+        "MRR@10": f"{scorecard.mrr_at_10:.3f}",
+        "Evidence inclusion": _rate_label(scorecard.evidence_inclusion_rate),
+        "Context drops": _rate_label(scorecard.dropped_evidence_rate),
+    }
 
 
 def _render_executive_metric(
