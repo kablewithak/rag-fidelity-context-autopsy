@@ -1,0 +1,101 @@
+name: Deploy Hugging Face Space
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: huggingface-space-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify-deployment-contract:
+    name: Verify deployment contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the reviewed source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lightweight deployment checks
+        shell: bash
+        run: python -m pip install ".[dev]"
+
+      - name: Validate Space packaging and workflow contract
+        shell: bash
+        run: |
+          python -m pytest \
+            tests/test_hugging_face_spaces_package.py \
+            tests/test_hugging_face_deploy_workflow.py
+
+  deploy:
+    name: Mirror GitHub main to Hugging Face Space
+    needs: verify-deployment-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the reviewed source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify deployment source
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          git status --short
+          test -z "$(git status --porcelain)"
+          git rev-parse HEAD
+
+      - name: Mirror main to Hugging Face
+        shell: bash
+        env:
+          HF_SPACE_DEPLOY_TOKEN: ${{ secrets.HF_SPACE_DEPLOY_TOKEN }}
+          HF_USERNAME: KaboKableMolefe
+          HF_SPACE_REPOSITORY: KaboKableMolefe/rag-fidelity-context-autopsy
+        run: |
+          test -n "$HF_SPACE_DEPLOY_TOKEN"
+
+          askpass_path="$RUNNER_TEMP/hf-space-askpass.sh"
+          trap 'rm -f "$askpass_path"' EXIT
+
+          cat > "$askpass_path" <<'EOF'
+          #!/usr/bin/env bash
+          case "$1" in
+            *Username*) printf '%s\n' "$HF_USERNAME" ;;
+            *Password*) printf '%s\n' "$HF_SPACE_DEPLOY_TOKEN" ;;
+            *) exit 1 ;;
+          esac
+          EOF
+
+          chmod 700 "$askpass_path"
+
+          git remote add hf "https://huggingface.co/spaces/${HF_SPACE_REPOSITORY}"
+
+          GIT_ASKPASS="$askpass_path" \
+          GIT_TERMINAL_PROMPT=0 \
+          git push --porcelain hf HEAD:main
+
+          local_commit="$(git rev-parse HEAD)"
+          space_commit="$(
+            GIT_ASKPASS="$askpass_path" \
+            GIT_TERMINAL_PROMPT=0 \
+            git ls-remote hf refs/heads/main | awk '{print $1}'
+          )"
+
+          test -n "$space_commit"
+          test "$local_commit" = "$space_commit"
+
+          printf 'HF_SPACE_DEPLOY: PASS | commit=%s\n' "$local_commit"
