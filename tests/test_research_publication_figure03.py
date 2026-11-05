@@ -64,7 +64,7 @@ def test_figure03_static_markup_and_deployment_gate() -> None:
     assert "button.setAttribute('aria-pressed'" in script
     assert 'position:sticky' in css
     assert 'prefers-reduced-motion:reduce' in css
-    assert 'python scripts/export_research_publication_figure03.py --check' in workflow
+    assert 'python -m scripts.export_research_publication_figure03 --check' in workflow
     assert 'tests/test_research_publication_figure03.py' in workflow
     assert 'git push --porcelain hf HEAD:main' in workflow
     assert '--force' not in workflow

@@ -62,7 +62,7 @@ jobs:
       - name: Validate research publication intervention figure
         shell: bash
         run: |
-          python scripts/export_research_publication_figure03.py --check
+          python -m scripts.export_research_publication_figure03 --check
           python -m pytest tests/test_research_publication_figure03.py
 
       - name: Install tokenizer for deterministic context proof

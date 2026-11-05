@@ -36,7 +36,7 @@ def test_container_smoke_and_reviewed_export_gates_run_before_mirror() -> None:
     assert "tests/test_publication_hosting.py" in source
     assert "python -m scripts.update_publication_readme --check" in source
     assert "python scripts/export_research_publication_gate01.py --check" in source
-    assert "python scripts/export_research_publication_figure03.py --check" in source
+    assert "python -m scripts.export_research_publication_figure03 --check" in source
     assert "python -m scripts.export_research_publication_figure04 --check" in source
     assert "python -m scripts.export_research_publication_figure05 --check" in source
     assert "tests/test_research_publication_figure02.py" in source
