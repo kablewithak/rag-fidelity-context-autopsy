@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="An interactive research publication tracing evidence loss in an 18-case synthetic benchmark and a separate 30-case public SQuAD transfer probe.">
+  <title>Where evidence disappears — RAG Fidelity</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="data.js"></script>
+  <script defer src="figure03_data.js"></script>
+  <script defer src="figure04_data.js"></script>
+  <script defer src="figure05_data.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#figure-one">Skip to the evidence figure</a>
+  <header class="site-header">
+    <div class="frame masthead">
+      <a class="wordmark" href="#top" aria-label="RAG Fidelity — start of article"><span class="brand-rule"></span>RAG <i>/</i> FIDELITY</a>
+      <span class="publication-name">An independent study in retrieval reliability</span>
+      <nav class="top-nav" aria-label="On this page"><a href="#figure-one"><span class="nav-long">The matrix</span><span class="nav-short">Matrix</span></a><a href="#figure-two"><span class="nav-long">The journey</span><span class="nav-short">Journey</span></a><a href="#figure-three"><span class="nav-long">The findings</span><span class="nav-short">Findings</span></a><a href="#figure-four"><span class="nav-long">The context</span><span class="nav-short">Context</span></a><a href="#figure-five"><span class="nav-long">The transfer</span><span class="nav-short">Transfer</span></a><a href="#method">Methods</a></nav>
+    </div>
+  </header>
+  <main id="top">
+    <div class="frame">
+      <div class="topline"><span>RESEARCH NOTE <b>001</b></span><span>FIXED SYNTHETIC BENCHMARK <b>·</b> 2026</span></div>
+      <section class="hero" aria-labelledby="article-title">
+        <div class="hero-main">
+          <p class="section-kicker"><span class="thin-line"></span> THE EVIDENCE LIFECYCLE</p>
+          <h1 id="article-title">Where evidence<br><em>disappears.</em></h1>
+          <p class="hero-deck">A document can contain the right answer. A retriever can even find it. Yet the evidence may still never reach the model.</p>
+          <p class="hero-byline">An interactive study of where retrieval-augmented generation loses information — and which interventions recover it.</p>
+        </div>
+        <aside class="hero-aside" aria-label="Central finding">
+          <span class="aside-index">THE CENTRAL FINDING</span>
+          <p class="aside-lead">The weakest pipeline lost complete evidence in <strong>five</strong> of eighteen fixed cases.</p>
+          <div class="aside-numbers">
+            <div><span class="aside-value">13<span class="slash">/18</span></span><span class="aside-caption">Baseline retained evidence</span></div>
+            <div><span class="aside-value">18<span class="slash">/18</span></span><span class="aside-caption">Strongest configuration</span></div>
+          </div>
+          <p class="aside-footnote">Evidence selection, not generated-answer correctness.</p>
+        </aside>
+      </section>
+      <div class="hero-bottom"><span class="ornament">✳</span><span>Scroll to inspect the evidence</span><span class="hero-line"></span><a href="#figure-one" aria-label="Jump to Figure 01">↓</a></div>
+    </div>
+    <section class="intro frame" aria-label="Introduction">
+      <div class="intro-number">I. <span>THE QUESTION</span></div>
+      <div class="intro-body">
+        <p class="lead-copy">A single benchmark score tells us <em>how often</em> a system succeeds. It rarely tells us <em>where</em> it went wrong.</p>
+        <p>We followed eighteen fixed questions through four retrieval configurations. Each question had known supporting evidence. At the final selection boundary, we recorded whether that complete evidence survived — or the stage at which it was lost.</p>
+        <p>What follows is not a claim about the quality of a model's answer. It is a closer look at the information the model would have been allowed to see.</p>
+      </div>
+    </section>
+  </main>
+  <section class="figure-section" id="figure-one" aria-labelledby="figure-title">
+    <div class="frame">
+      <div class="figure-headline">
+        <div class="figure-index">FIGURE <strong>01</strong><span class="figure-index-rule"></span> EVIDENCE SURVIVAL</div>
+        <h2 id="figure-title">Five failures. <em>Three different causes.</em></h2>
+        <p>The same eighteen cases, tested against four configurations. Each mark represents one reviewed case outcome. Select a row to examine its recorded path.</p>
+      </div>
+      <div class="figure-workspace">
+        <div class="matrix-area">
+          <div class="matrix-toolbar"><span id="view-count" aria-live="polite">Showing 18 of 18 fixed cases</span><button id="toggle-filter" class="text-button" type="button" aria-pressed="false">Focus on the five baseline losses <span aria-hidden="true">↗</span></button></div>
+          <div class="table-wrap">
+            <table class="evidence-table" aria-describedby="matrix-description">
+              <thead><tr><th scope="col" class="case-col">Case</th><th scope="col"><span class="column-name">Char. + dense</span><span class="column-code">C + D</span></th><th scope="col"><span class="column-name">Token + dense</span><span class="column-code">T + D</span></th><th scope="col"><span class="column-name">Token + hybrid</span><span class="column-code">T + H</span></th><th scope="col"><span class="column-name">Hybrid + rerank</span><span class="column-code">T + H + R</span></th></tr></thead>
+              <tbody id="case-rows"></tbody>
+              <tfoot><tr><th scope="row">Evidence included</th><td>13/18</td><td>16/18</td><td>18/18</td><td>18/18</td></tr></tfoot>
+            </table>
+          </div>
+          <p id="matrix-description" class="chart-note">Rows with a baseline loss appear first; remaining cases retain their original ID order. Cells represent reviewed evidence-selection outcomes, not generated-answer scores. All 18 cases remain part of every denominator.</p>
+          <div class="legend" aria-label="Legend"><span class="legend-title">READING THE MARKS</span><span><i class="mark included" aria-hidden="true"></i> Included</span><span><i class="mark chunking" aria-hidden="true"></i> Chunking loss</span><span><i class="mark retrieval" aria-hidden="true"></i> Retrieval loss</span><span><i class="mark ranking" aria-hidden="true"></i> Ranking loss</span></div>
+        </div>
+        <aside class="case-inspector" id="case-inspector" aria-labelledby="inspector-title">
+          <div class="inspector-heading"><span>SELECTED CASE</span><span id="case-sequence">03 / 18</span></div>
+          <div class="inspector-content" aria-live="polite" aria-atomic="true">
+            <span id="case-family" class="case-family">LEGAL CLAUSE</span>
+            <h3 id="inspector-title">Confidentiality care</h3>
+            <p id="case-question" class="case-question">What level of care must each party use for confidential information?</p>
+            <div class="inspector-divider"></div>
+            <div id="case-path" class="case-path"></div>
+            <div class="inspector-divider"></div>
+            <div class="finding-caption">WHAT THIS CASE SHOWS</div>
+            <p id="case-interpretation" class="finding-copy"></p>
+            <p id="case-identifier" class="case-id"></p>
+          </div>
+        </aside>
+      </div>
+      <div class="figure-annotation">
+        <div class="annotation-title">THE BASELINE LOSSES</div>
+        <div class="annotation-stat"><strong>03</strong><span>Evidence damaged<br>at chunking</span></div>
+        <div class="annotation-stat"><strong>01</strong><span>Missing from<br>retrieval</span></div>
+        <div class="annotation-stat"><strong>01</strong><span>Ranked below<br>selection</span></div>
+      </div>
+      <div class="figure-source"><p><strong>Source.</strong> Reviewed artifact <code>four_pipeline_baseline_v1</code>, run <code>local_four_pipeline_run_v2</code>. Eighteen synthetic cases; four fixed pipeline definitions. No model reruns occur in this page.</p><a href="https://github.com/kablewithak/rag-fidelity-context-autopsy/blob/main/artifacts/comparisons/four_pipeline_baseline_v1.json" target="_blank" rel="noopener noreferrer">Inspect reviewed artifact <span aria-hidden="true">↗</span></a></div>
+    </div>
+  </section>
+
+  <section class="journey-section" id="figure-two" aria-labelledby="journey-title">
+    <div class="frame">
+      <div class="journey-intro">
+        <div class="figure-index">FIGURE <strong>02</strong><span class="figure-index-rule"></span> ANATOMY OF A FAILURE</div>
+        <h2 id="journey-title">Follow the evidence,<br><em>not the score.</em></h2>
+        <p>A loss classification is not a recording of every internal operation. This diagram places the reviewed outcome alongside the points where the available evidence becomes more—and less—certain.</p>
+      </div>
+      <div class="journey-head">
+        <div class="journey-case-heading">
+          <span class="journey-caption">ACTIVE CASE <span class="journey-linkage">/ linked to Figure 01</span></span>
+          <h3 id="journey-case-title">Confidentiality care</h3>
+          <p id="journey-case-question" class="journey-case-question"></p>
+        </div>
+        <a href="#figure-one" class="journey-back">Choose another case in Figure 01 <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="journey-config">
+        <div class="journey-config-heading">
+          <span class="journey-caption">COMPARE THE FOUR REVIEWED CONFIGURATIONS</span>
+          <span class="journey-config-help">Select a pipeline to update the recorded path</span>
+        </div>
+        <div id="journey-pipelines" class="journey-pipelines" role="group" aria-label="Choose a reviewed retrieval configuration"></div>
+      </div>
+      <div class="journey-reading">
+        <div class="journey-overview">
+          <span class="journey-caption">READING THE PATH</span>
+          <p id="journey-introduction" class="journey-summary"></p>
+        </div>
+        <p class="journey-limits">The figure reports the fixed-case fixture, the reviewed loss classification, recorded first-stage and reranked positions, and final inclusion. It does not reconstruct individual chunk or candidate contents.</p>
+      </div>
+      <div id="journey-stages" class="journey-stages" role="group" aria-label="Inspect evidence lifecycle stages"></div>
+      <div class="journey-analysis" aria-live="polite" aria-atomic="true">
+        <div class="journey-analysis-index"><span id="journey-stage-number">01 / 05</span><span>STAGE INSPECTION</span></div>
+        <div>
+          <h3 id="journey-stage-heading"></h3>
+          <p id="journey-stage-explanation"></p>
+          <p id="journey-stage-basis" class="journey-stage-basis"></p>
+        </div>
+      </div>
+      <div class="journey-source">
+        <p><strong>Figure note.</strong> Paths are explanatory views of reviewed outcome fields. “No recorded loss” is not a newly measured stage-level pass. A missing rank is not an estimated retrieval position.</p>
+        <p>Reviewed synthetic baseline · <code>four_pipeline_baseline_v1</code> · <code>local_four_pipeline_run_v2</code> · No inference on page load.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="comparison-section" id="figure-three" aria-labelledby="comparison-title">
+    <div class="frame">
+      <div class="comparison-intro">
+        <div class="figure-index">FIGURE <strong>03</strong><span class="figure-index-rule"></span> MEASURED INTERVENTIONS</div>
+        <h2 id="comparison-title">Better evidence selection.<br><em>Not the whole story.</em></h2>
+        <p>Four ordered configurations reveal different kinds of progress. Recovering complete evidence and promoting it higher in the candidate order are related, but not interchangeable, results.</p>
+      </div>
+      <div class="comparison-figure" aria-describedby="comparison-method">
+        <div class="comparison-figure-head">
+          <div><span class="comparison-eyebrow">THE REVIEWED COMPARISON</span><p>All values are drawn from the same eighteen fixed synthetic cases.</p></div>
+          <span class="comparison-axis-label">Metric scale: 0–100%</span>
+        </div>
+        <div id="comparison-plots" class="comparison-plots" aria-label="Three aligned plots: evidence inclusion, Recall at five, and mean reciprocal rank at ten"></div>
+        <div class="comparison-active" aria-live="polite" aria-atomic="true">
+          <span class="comparison-active-label">INSPECTED CONFIGURATION</span>
+          <div><h3 id="comparison-active-title"></h3><p id="comparison-active-copy"></p></div>
+        </div>
+        <div class="comparison-columns" aria-label="Four ordered pipeline configurations">
+          <div><span>01</span><strong>Character<br>+ dense</strong></div>
+          <div><span>02</span><strong>Token<br>+ dense</strong></div>
+          <div><span>03</span><strong>Token<br>+ hybrid</strong></div>
+          <div><span>04</span><strong>Hybrid + rerank<br>+ budgeted selection</strong></div>
+        </div>
+        <p id="comparison-method" class="comparison-method">Dots locate each reported metric on a common ruler, with one row per reviewed configuration. The rows are not a time series. All three metrics use the same 0–100% horizontal scale (MRR@10 is multiplied by 100 for plotting). Values are directly labelled, including denominators for count-based metrics.</p>
+      </div>
+      <div class="comparison-steps">
+        <div class="comparison-steps-intro"><span>READING THE CHANGES</span><p>Three transitions.<br>Three different lessons.</p></div>
+        <div class="comparison-step-list" id="comparison-step-list" aria-label="Stepwise benchmark differences"></div>
+      </div>
+      <div class="comparison-caveat">
+        <span class="comparison-caveat-label">INTERPRETATION BOUNDARY</span>
+        <p>The fourth configuration changes reranking <em>and</em> final context selection; its difference cannot be attributed exclusively to the reranker. These are benchmark observations, not isolated causal estimates or customer-data outcomes.</p>
+      </div>
+      <div class="figure-source"><p><strong>Source.</strong> <code>four_pipeline_baseline_v1</code> · <code>local_four_pipeline_run_v2</code> · Recall@5, MRR@10 and final evidence inclusion measured on the same 18 synthetic cases. Public transfer remains a separate evaluation.</p><a href="https://github.com/kablewithak/rag-fidelity-context-autopsy/blob/main/docs/reports/four_pipeline_baseline_v1.md" target="_blank" rel="noopener noreferrer">Read reviewed report <span aria-hidden="true">↗</span></a></div>
+    </div>
+  </section>
+  <section class="budget-section" id="figure-four" aria-labelledby="budget-title">
+    <div class="frame">
+      <div class="budget-intro">
+        <div class="figure-index">FIGURE <strong>04</strong><span class="figure-index-rule"></span> CONTROLLED CONTEXT PRESSURE</div>
+        <h2 id="budget-title">The evidence was found.<br><em>The context had no room.</em></h2>
+        <p>In a separate controlled experiment, two ways of formatting the same fixed candidate order compete for one calibrated token window. The third-ranked gold candidate survives only under the compact rendering profile.</p>
+      </div>
+      <div class="budget-facts" aria-label="Fixed experiment conditions"><div><span>CONTEXT WINDOW</span><strong>468 <small>tokens</small></strong></div><div><span>OUTPUT RESERVE</span><strong>120 <small>tokens</small></strong></div><div><span>GOLD EVIDENCE</span><strong>03 <small>reranked position</small></strong></div></div>
+      <div class="budget-figure">
+        <div class="budget-axis-heading"><span>FIGURE 04.A <b> / </b> THE ALLOCATION</span><span>Both rows use the same 468-token scale</span></div>
+        <div class="budget-profile-rows" id="budget-profile-rows" aria-label="Measured token allocation under two render profiles"></div>
+        <div class="budget-legend"><span><i class="budget-key static" aria-hidden="true"></i>Static prompt</span><span><i class="budget-key evidence" aria-hidden="true"></i>Raw evidence</span><span><i class="budget-key overhead" aria-hidden="true"></i>Wrapper overhead</span><span><i class="budget-key unused" aria-hidden="true"></i>Unused capacity</span><span><i class="budget-key reserve" aria-hidden="true"></i>Output reserve</span></div>
+        <p class="budget-note" id="budget-measurement-note"></p>
+      </div>
+      <div class="budget-inspection">
+        <div class="budget-inspection-aside"><span class="budget-eyebrow">FIGURE 04.B <b> / </b> CANDIDATE DECISIONS</span><h3>Follow the third candidate.</h3><p>Inspect a rendering profile to see which reranked candidates were included and which were dropped. No candidate passages or rendered prompts are exposed.</p><div id="budget-selectors" class="budget-selectors" role="group" aria-label="Inspect context rendering profile"></div></div>
+        <div class="budget-inspection-main" aria-live="polite"><div id="budget-inspection-head" class="budget-inspection-head"></div><div id="budget-decisions" class="budget-decisions"></div><p id="budget-inspection-foot" class="budget-inspection-foot"></p></div>
+      </div>
+      <div class="budget-boundary"><span>INTERPRETATION BOUNDARY</span><p>This is a fixed synthetic mechanism proof, calibrated to put context formatting under pressure. It is <em>not</em> a context failure observed in the standard 18-case four-pipeline benchmark, nor a measurement of generated-answer quality.</p></div>
+      <div class="figure-source"><p><strong>Source.</strong> <code>token_context_notice_018</code> · deterministic local context accounting · <code>tiktoken:cl100k_base</code>. The complete allocation is exported from the existing validated Python autopsy view.</p><a href="https://github.com/kablewithak/rag-fidelity-context-autopsy/blob/main/rag_lab/context_autopsy_explorer.py" target="_blank" rel="noopener noreferrer">Inspect the context logic <span aria-hidden="true">↗</span></a></div>
+    </div>
+  </section>
+  <section class="transfer-section" id="figure-five" aria-labelledby="transfer-title">
+    <div class="frame">
+      <div class="transfer-intro">
+        <div class="figure-index">FIGURE <strong>05</strong><span class="figure-index-rule"></span> PUBLIC-CORPUS TRANSFER</div>
+        <h2 id="transfer-title">A gain that<br><em>hides a miss.</em></h2>
+        <p>On a separate, fixed thirty-question public SQuAD probe, stronger evidence selection came with a small loss of first-stage recall. Better is not the same as better at every boundary.</p>
+      </div>
+      <div class="transfer-context" aria-label="Scope of public transfer probe">
+        <span><strong>30</strong> public questions</span>
+        <span><strong>10</strong> source documents</span>
+        <span><strong>4</strong> fixed configurations</span>
+        <span>Reviewed SQuAD v1.1 fixture; separate from the 18-case synthetic benchmark</span>
+      </div>
+      <div class="transfer-graphic" aria-labelledby="transfer-chart-heading">
+        <div class="transfer-graphic-heading"><span>FIGURE 05.A <b>/</b> THE TRADE-OFF</span><span>Baseline versus inspected configuration · same public fixture</span></div>
+        <h3 id="transfer-chart-heading">More evidence survives.<br><em>One retrieval miss remains.</em></h3>
+        <div id="transfer-comparisons" class="transfer-comparisons" aria-label="Paired public corpus metric comparisons"></div>
+        <p class="transfer-graphic-note">Each paired ruler uses its own reported metric on a 0–100% scale; MRR@10 is displayed on a 0–1 scale. Counts use the same 30-case public denominator. The comparison is descriptive, not a causal isolation of individual components.</p>
+      </div>
+      <div class="transfer-workspace">
+        <div class="transfer-study">
+          <div class="transfer-table-heading"><span>FIGURE 05.B <b>/</b> ALL FOUR CONFIGURATIONS</span><p>Select a row to inspect its comparison with the character-and-dense baseline.</p></div>
+          <div class="transfer-table-scroller"><table class="transfer-table"><thead><tr><th scope="col">Configuration</th><th scope="col">Included</th><th scope="col">Recall@5</th><th scope="col">MRR@10</th><th scope="col">Losses</th></tr></thead><tbody id="transfer-pipeline-rows"></tbody></table></div>
+        </div>
+        <aside class="transfer-inspector" aria-live="polite" aria-atomic="true">
+          <span>INSPECTED CONFIGURATION</span>
+          <h3 id="transfer-inspector-title"></h3>
+          <p id="transfer-inspector-copy"></p>
+          <div id="transfer-inspector-loss" class="transfer-inspector-loss"></div>
+        </aside>
+      </div>
+      <div class="transfer-boundary"><span>WHAT TRANSFERS — AND WHAT DOESN'T</span><p>The 18-case synthetic benchmark and 30-case SQuAD probe are separate, deliberately bounded sets. We do not pool their rates, assume they represent customer data, or infer final-answer grounding from evidence selection. The strongest public configuration still has one observed retrieval loss.</p></div>
+      <div class="figure-source"><p><strong>Source.</strong> <code>public_transfer_squad_v1_dev_v1_reviewed_v1</code> · SQuAD v1.1 · 30 fixed cases / 10 source documents · reviewed source and fixture hashes are retained by the exporter. No public questions, passages or generated answers are sent to this browser page.</p><a href="https://github.com/kablewithak/rag-fidelity-context-autopsy/blob/main/docs/reports/public_transfer_squad_v1_dev_v1_reviewed_v1.md" target="_blank" rel="noopener noreferrer">Read public-transfer report <span aria-hidden="true">↗</span></a></div>
+    </div>
+  </section>
+  <section id="method" class="method-section frame" aria-labelledby="method-heading">
+    <div class="intro-number">II. <span>WHAT THIS FIGURE MEANS</span></div>
+    <div class="method-content"><h2 id="method-heading">The boundary matters.</h2><p class="method-lead">Evidence inclusion is not answer correctness. It measures whether the complete known evidence reached final context selection — not whether a language model used it faithfully.</p><div class="method-grid"><div><h3>The experimental scope</h3><p>These are fixed synthetic diagnostic cases, deliberately constructed to expose distinct failure modes. Their counts describe this benchmark, not expected performance on customer data.</p></div><div><h3>The measured progression</h3><p>Token-aware chunking, hybrid retrieval and reranking are compared as fixed pipeline configurations. This figure shows case-level outcomes; it does not establish that each change independently causes the entire observed gain.</p></div></div><p class="method-last">Figure 04 is a separate calibrated context-pressure mechanism. Figure 05 is a separately reviewed, fixed public SQuAD transfer probe: its 30-case rates cannot be pooled with the 18 synthetic cases. Neither set measures generated-answer correctness or customer-data performance.</p></div>
+  </section>
+  <footer class="site-footer"><div class="frame footer-inner"><span>RAG <i>/</i> FIDELITY</span><span>RESEARCH NOTE 001 &nbsp; · &nbsp; FIGURES 01–05</span><a href="https://github.com/kablewithak/rag-fidelity-context-autopsy" target="_blank" rel="noopener noreferrer">Repository ↗</a></div></footer>
+</body>
+</html>

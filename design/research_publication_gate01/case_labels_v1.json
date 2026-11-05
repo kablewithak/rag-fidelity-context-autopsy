@@ -1,0 +1,20 @@
+{
+  "legal_termination_001": "Material breach",
+  "legal_payment_002": "Invoice payment",
+  "legal_confidentiality_003": "Confidentiality care",
+  "legal_governing_law_004": "Governing law",
+  "support_refund_005": "Refund eligibility",
+  "support_enterprise_s1_006": "Enterprise severity 1",
+  "support_security_notice_007": "Security notification",
+  "pricing_team_plan_008": "Team plan price",
+  "pricing_annual_discount_009": "Annual discount",
+  "pricing_procurement_010": "Procurement threshold",
+  "multilingual_password_011": "Password reset · FR",
+  "multilingual_security_012": "Security notice · DE",
+  "code_sso_error_013": "SSO error code",
+  "code_root_cause_014": "SSO root cause",
+  "faq_export_015": "Workspace export",
+  "faq_delete_016": "Workspace deletion",
+  "token_boundary_export_017": "Continuity export",
+  "token_context_notice_018": "Restricted-record notice"
+}
