@@ -67,6 +67,10 @@ def test_figure02_preserves_gate01_and_accessibility_states() -> None:
     assert 'prefers-reduced-motion:reduce' in css
     assert 'position:sticky' in css
     assert '--nav-height' in css
+    assert '.journey-node.active{border-top-color:var(--ink);background:transparent}' in css
+    assert '.journey-node.active .journey-node-title{' in css
+    assert 'text-decoration-color:var(--clay)' in css
+    assert 'background:#f1f0e9' not in css
 
 
 def test_figure02_real_case_logic_from_reviewed_projection() -> None:
