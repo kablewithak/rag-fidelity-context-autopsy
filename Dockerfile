@@ -1,27 +1,23 @@
 # syntax=docker/dockerfile:1
+# Gate 07: serve the reviewed static research publication; no inference at request time.
 FROM python:3.12-slim
 
 ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PYTHONUNBUFFERED=1
 
 RUN useradd --create-home --uid 1000 user
-
 USER user
 WORKDIR $HOME/app
 
-COPY --chown=user pyproject.toml README.md ./
-COPY --chown=user rag_lab ./rag_lab
-COPY --chown=user app ./app
-COPY --chown=user artifacts ./artifacts
-COPY --chown=user data ./data
-COPY --chown=user docs/reports ./docs/reports
-
-RUN python -m pip install --no-cache-dir --upgrade pip && \
-    python -m pip install --no-cache-dir ".[tiktoken,demo]"
+COPY --chown=user app/publication_server.py ./app/publication_server.py
+COPY --chown=user design/research_publication_gate01/index.html ./design/research_publication_gate01/index.html
+COPY --chown=user design/research_publication_gate01/styles.css ./design/research_publication_gate01/styles.css
+COPY --chown=user design/research_publication_gate01/app.js ./design/research_publication_gate01/app.js
+COPY --chown=user design/research_publication_gate01/data.js ./design/research_publication_gate01/data.js
+COPY --chown=user design/research_publication_gate01/figure03_data.js ./design/research_publication_gate01/figure03_data.js
+COPY --chown=user design/research_publication_gate01/figure04_data.js ./design/research_publication_gate01/figure04_data.js
+COPY --chown=user design/research_publication_gate01/figure05_data.js ./design/research_publication_gate01/figure05_data.js
 
 EXPOSE 7860
-
-CMD ["sh", "-c", "streamlit run app/streamlit_app.py --server.address=0.0.0.0 --server.port=${PORT:-7860} --server.headless=true --browser.gatherUsageStats=false"]
+CMD ["sh", "-c", "exec python app/publication_server.py --host 0.0.0.0 --port ${PORT:-7860}"]

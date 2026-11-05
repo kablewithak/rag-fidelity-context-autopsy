@@ -175,6 +175,22 @@ python .\scripts\publish_public_transfer_review.py --check
 
 The public-corpus transfer probe is separate from the synthetic benchmark. It measures evidence survival on a fixed public SQuAD v1.1 fixture and does not establish customer-data performance, final-answer correctness, or production readiness.
 
+## Hosted publication — Gate 07
+
+The public Hugging Face Docker Space serves the **read-only research publication** at
+`design/research_publication_gate01/`, with five evidence figures backed by reviewed,
+versioned exports. The Streamlit explorer remains available locally via
+`python -m streamlit run app/streamlit_app.py`; it is no longer the hosted entrypoint.
+
+Before merging the serving cutover, GitHub pull-request checks verify the frozen
+synthetic/public evidence exports, the measured context-budget fixture, frontend
+JavaScript, and an actual Docker HTTP smoke. The `main` deployment retains the
+existing non-force Git mirror and commit-parity check. A failed hosted release
+must be rolled back through a new GitHub revert commit, not a force-push to Space.
+
+This hosting change does **not** establish production readiness, customer-data
+validity, monitored service-level objectives, or generated-answer grounding.
+
 ## Hosted deployment
 
 GitHub `main` is the source of truth. The `Deploy Hugging Face Space` GitHub Actions workflow mirrors merged `main` to the Hugging Face Space through a secret-only credential boundary and verifies source parity after deployment.

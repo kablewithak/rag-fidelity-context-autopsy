@@ -1,6 +1,9 @@
 name: Deploy Hugging Face Space
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -15,9 +18,9 @@ permissions:
 
 jobs:
   verify-deployment-contract:
-    name: Verify deployment contract
+    name: Verify deployment contract and reviewed evidence
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Check out the reviewed source
@@ -28,6 +31,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Node for frontend syntax checks
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Install lightweight deployment checks
         shell: bash
         run: python -m pip install ".[dev]"
@@ -37,11 +45,91 @@ jobs:
         run: |
           python -m pytest \
             tests/test_hugging_face_spaces_package.py \
-            tests/test_hugging_face_deploy_workflow.py
+            tests/test_hugging_face_deploy_workflow.py \
+            tests/test_publication_hosting.py
+          python -m scripts.update_publication_readme --check
+
+      - name: Validate reviewed research publication export
+        shell: bash
+        run: |
+          python scripts/export_research_publication_gate01.py --check
+          python -m pytest tests/test_research_publication_gate01_export.py
+
+      - name: Validate research publication evidence journey
+        shell: bash
+        run: python -m pytest tests/test_research_publication_figure02.py
+
+      - name: Validate research publication intervention figure
+        shell: bash
+        run: |
+          python scripts/export_research_publication_figure03.py --check
+          python -m pytest tests/test_research_publication_figure03.py
+
+      - name: Install tokenizer for deterministic context proof
+        shell: bash
+        run: python -m pip install "tiktoken>=0.8,<1.0"
+
+      - name: Validate measured context-budget research figure
+        shell: bash
+        run: |
+          python -m scripts.export_research_publication_figure04 --check
+          python -m pytest tests/test_research_publication_figure04.py
+
+      - name: Validate reviewed public-corpus transfer research figure
+        shell: bash
+        run: |
+          python -m scripts.export_research_publication_figure05 --check
+          python -m pytest tests/test_research_publication_figure05.py
+
+      - name: Validate publication JavaScript syntax
+        shell: bash
+        run: |
+          node --check design/research_publication_gate01/data.js
+          node --check design/research_publication_gate01/figure03_data.js
+          node --check design/research_publication_gate01/figure04_data.js
+          node --check design/research_publication_gate01/figure05_data.js
+          node --check design/research_publication_gate01/app.js
+
+  verify-container-runtime:
+    name: Build and smoke-test publication container
+    needs: verify-deployment-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the reviewed source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build read-only Space container
+        shell: bash
+        run: docker build --tag rag-fidelity-publication:gate07 .
+
+      - name: Verify container HTTP contract
+        shell: bash
+        run: |
+          docker run --rm --detach --name rag-fidelity-publication \
+            --publish 127.0.0.1:17860:7860 rag-fidelity-publication:gate07
+          trap 'docker logs rag-fidelity-publication || true; docker rm -f rag-fidelity-publication >/dev/null 2>&1 || true' EXIT
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:17860/healthz >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1
+          python -m scripts.smoke_publication_host --base-url http://127.0.0.1:17860
 
   deploy:
     name: Mirror GitHub main to Hugging Face Space
-    needs: verify-deployment-contract
+    needs: [verify-deployment-contract, verify-container-runtime]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
