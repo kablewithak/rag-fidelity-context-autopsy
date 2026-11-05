@@ -6,6 +6,33 @@ const LOSS_DESCRIPTIONS = Object.freeze({
   ranking:'Evidence reached the candidate set but was not selected for final context.'
 });
 const $ = (id)=>document.getElementById(id);
+// Editorial English renderings. Benchmark queries in data.js remain in their
+// original languages; never substitute these strings into evaluation inputs.
+const ENGLISH_DISPLAY_QUESTIONS=Object.freeze({
+  multilingual_password_011:Object.freeze({
+    original:'Comment réinitialiser un mot de passe et combien de temps le lien reste-t-il valide ?',
+    english:'How do you reset a password, and how long does the reset link remain valid?',
+    language:'French'
+  }),
+  multilingual_security_012:Object.freeze({
+    original:'Wann informiert Northstar betroffene Unternehmenskunden nach einem bestätigten Sicherheitsvorfall?',
+    english:'When does Northstar notify affected enterprise customers after a confirmed security incident?',
+    language:'German'
+  })
+});
+function publishedCaseQuestion(c){
+  const translation=ENGLISH_DISPLAY_QUESTIONS[c.id];
+  if(!translation)return {text:c.query,note:''};
+  if(c.query!==translation.original)throw new Error('Source query changed; translation review required: '+c.id);
+  return {text:translation.english,note:'English translation for readability; the benchmark evaluated the original '+translation.language+' question.'};
+}
+function renderPublishedQuestion(questionId,noteId,c){
+  const display=publishedCaseQuestion(c);
+  $(questionId).textContent=display.text;
+  const note=$(noteId);
+  note.textContent=display.note;
+  note.hidden=!display.note;
+}
 let selectedId='legal_confidentiality_003';
 let baselineOnly=false;
 let selectedPipelineIndex=0;
@@ -75,7 +102,7 @@ function renderInspector(){
   const c=CASES.find(x=>x.id===selectedId);if(!c)return;
   $('case-family').textContent=c.group.toUpperCase();
   $('inspector-title').textContent=c.label;
-  $('case-question').textContent=c.query;
+  renderPublishedQuestion('case-question','case-translation-note',c);
   $('case-sequence').textContent=`${String(CASES.indexOf(c)+1).padStart(2,'0')} / 18`;
   $('case-interpretation').textContent=interpretationFor(c);
   $('case-identifier').textContent=c.id;
@@ -192,7 +219,7 @@ function renderJourney(){
   const state=c.states[selectedPipelineIndex];
   const stages=stageModel(c,state);
   $('journey-case-title').textContent=c.label;
-  $('journey-case-question').textContent=c.query;
+  renderPublishedQuestion('journey-case-question','journey-translation-note',c);
   const configurations=$('journey-pipelines');configurations.replaceChildren();
   PIPELINES.forEach((p,i)=>{
     const button=addText('button','journey-pipeline'+(i===selectedPipelineIndex?' active':''),'',configurations);
