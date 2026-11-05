@@ -104,6 +104,7 @@ h1 em,h2 em{font-style:italic;font-weight:400}
 .inspector-content{padding-top:21px}.case-family{font-size:10px;color:var(--blue);letter-spacing:.09em;font-weight:600}
 .case-inspector h3{font-size:31px;line-height:1.1;letter-spacing:-.03em;margin:10px 0 16px}
 .case-question{font-family:var(--serif);font-size:20px;line-height:1.33;letter-spacing:-.01em;margin-bottom:23px}
+.case-translation-note{grid-column:1;font:400 11px/1.5 var(--sans);color:var(--muted);margin:-14px 0 18px}
 .inspector-divider{height:1px;background:var(--rule);margin:23px 0}
 .case-path{display:grid;gap:13px}.path-row{display:grid;grid-template-columns:20px minmax(0,1fr);gap:12px;align-items:start}
 .path-mark{width:12px;height:12px;margin-top:4px}.path-mark .mark{vertical-align:top}
@@ -144,6 +145,7 @@ code{font-family:var(--mono);font-size:.9em;overflow-wrap:anywhere}
 .journey-linkage{color:var(--muted);letter-spacing:0;text-transform:none}
 .journey-case-heading h3{font-size:clamp(35px,3.5vw,52px);letter-spacing:-.035em;line-height:1.12;margin:13px 0 10px}
 .journey-case-question{font:400 22px/1.4 var(--serif);max-width:715px;margin:0}
+.journey-translation-note{font:400 11px/1.5 var(--sans);color:var(--muted);margin:8px 0 0}
 .journey-back{font:400 12px/1.5 var(--sans);margin-top:2px;white-space:nowrap;text-underline-offset:5px}
 .journey-config{border-top:1px solid var(--rule)}
 .journey-config-heading{padding:23px 0 18px;display:flex;align-items:baseline;justify-content:space-between;gap:20px}
@@ -413,3 +415,5 @@ code{font-family:var(--mono);font-size:.9em;overflow-wrap:anywhere}
 .transfer-study,.transfer-table-scroller{min-width:0;max-width:100%}
 @media(max-width:660px){.transfer-workspace{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:660px){.transfer-table-heading{display:block}.transfer-table-heading span{white-space:normal}.transfer-table-heading p{max-width:100%;margin-top:8px}}
+
+@media(max-width:850px){.case-translation-note{margin:8px 0 12px}}
